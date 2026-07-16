@@ -278,6 +278,113 @@ html, body {
 /* ---------- Button-Reihen auf den End-Screens ---------- */
 .btn-row { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
 
+/* ---------- Level-Auswahl & Freischaltungen ---------- */
+#level-select { display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
+.level-btn.locked {
+  opacity: 0.45; cursor: not-allowed;
+  display: flex; flex-direction: column; gap: 2px; align-items: center;
+}
+.level-btn.locked:hover { transform: none; box-shadow: none; }
+.lock-hint { font-size: 0.68rem; letter-spacing: 0.04em; opacity: 0.8; }
+.level-btn.secondary {
+  padding: 10px 24px; font-size: 0.9rem;
+  background: rgba(120, 160, 220, 0.1); border-color: rgba(140, 180, 230, 0.4);
+  color: var(--cyan-pale);
+}
+#skill-line { font-size: 0.85rem; opacity: 0.95; }
+.skill-chip {
+  display: inline-block; margin: 0 4px; padding: 4px 10px;
+  border: 1px solid rgba(255, 210, 63, 0.45); border-radius: 20px;
+  background: rgba(255, 210, 63, 0.1); color: #ffe082; font-size: 0.78rem;
+}
+
+.unit-card.tower-locked { opacity: 0.45; cursor: not-allowed; }
+.lock-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; background: rgba(6, 12, 24, 0.55); border-radius: 6px;
+}
+
+/* ---------- Sieg-Screen ---------- */
+#win-screen .game-title { animation: winPop 0.7s cubic-bezier(0.2, 1.6, 0.4, 1); }
+@keyframes winPop {
+  0% { transform: scale(0.2) rotate(-6deg); opacity: 0; }
+  60% { transform: scale(1.15) rotate(2deg); }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+#win-unlocks {
+  display: flex; flex-direction: column; gap: 8px;
+  max-width: 560px;
+}
+.unlock-title {
+  font-size: 0.85rem; letter-spacing: 0.3em; color: #ffd23f;
+  text-align: center; margin-bottom: 2px;
+}
+.unlock-item {
+  background: rgba(255, 210, 63, 0.08);
+  border: 1px solid rgba(255, 210, 63, 0.35);
+  border-radius: 8px; padding: 8px 14px;
+  font-size: 0.85rem; line-height: 1.45; text-align: left;
+  animation: unlockIn 0.5s ease both;
+}
+.unlock-item:nth-child(2) { animation-delay: 0.15s; }
+.unlock-item:nth-child(3) { animation-delay: 0.3s; }
+.unlock-item:nth-child(4) { animation-delay: 0.45s; }
+@keyframes unlockIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- Drag-&-Drop-Geist ---------- */
+#drag-ghost {
+  position: fixed; width: 52px; height: 52px;
+  pointer-events: none; z-index: 45;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6));
+  opacity: 0.9;
+}
+#drag-ghost svg { width: 100%; height: 100%; }
+
+/* ---------- Lexikon ---------- */
+#lexicon-panel {
+  width: min(860px, 94vw); max-height: 86vh;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px; padding: 18px 22px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+#lexicon-header { display: flex; justify-content: space-between; align-items: center; }
+.game-title.small { font-size: 1.6rem; letter-spacing: 0.25em; }
+#lex-content { overflow-y: auto; text-align: left; padding-right: 6px; }
+.lex-heading {
+  font-size: 1rem; letter-spacing: 0.2em; color: var(--cyan-bright);
+  margin: 14px 0 8px;
+}
+.lex-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 10px; }
+.lex-card {
+  position: relative;
+  display: flex; gap: 12px; align-items: flex-start;
+  background: rgba(10, 30, 48, 0.6);
+  border: 1px solid rgba(77, 208, 225, 0.25);
+  border-radius: 8px; padding: 10px;
+}
+.lex-thumb { width: 64px; height: 64px; flex-shrink: 0; }
+.lex-thumb svg, .lex-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.lex-name { font-weight: 700; color: var(--cyan-bright); margin-bottom: 3px; }
+.lex-desc { font-size: 0.8rem; line-height: 1.45; opacity: 0.92; }
+.lex-stats { font-size: 0.7rem; opacity: 0.7; margin-top: 4px; }
+.lex-lock { display: none; position: absolute; top: 8px; right: 10px; font-size: 1.1rem; }
+.lex-card.lex-locked { opacity: 0.55; }
+.lex-card.lex-locked .lex-lock { display: block; }
+
+/* ---------- Ausbau-Menü: Pfad-Buttons ---------- */
+.menu-upgrade-hint {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 0.74rem; opacity: 0.85;
+}
+.menu-upgrade-hint svg { width: 12px; height: 12px; }
+.path-icon { font-size: 0.95rem; }
+.path-count { opacity: 0.8; font-size: 0.75rem; margin-left: 2px; }
+
 /* Recycler-Karte leicht abgesetzt */
 .unit-card.recycler-card { border-color: rgba(62, 207, 106, 0.45); }
 .unit-card.recycler-card.selected {

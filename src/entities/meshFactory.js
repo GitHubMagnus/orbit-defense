@@ -81,6 +81,7 @@ function makeCard() {
 function makeRig(g, scale, shadowW) {
   const sizer = new THREE.Group();
   sizer.scale.setScalar(scale);
+  sizer.userData.baseScale = scale;
   g.add(sizer);
   sizer.add(makeShadow(shadowW));
   const card = makeCard();
@@ -144,7 +145,9 @@ function drawChevron(ctx) {
   ctx.closePath(); ctx.fill(); ctx.stroke();
 }
 
-// Hängt Beschädigungs-Overlays und Level-Chevrons an die Karte eines Gebäudes.
+// Hängt Beschädigungs-Overlays und die Ausbau-Optik an die Karte eines Gebäudes.
+// Ausbauten verändern das Modell sichtbar: das Gebäude wächst, bekommt ab
+// Stufe 2 eine goldene Energie-Plattform und ab Stufe 3 eine leuchtende Aura.
 // Liefert { setDamage(stufe 0-2), setLevel(1-3) } für die Defender-Klasse.
 function attachDefenderExtras(card, size, y) {
   const d1 = spritePlane('def-damage-1', 256, 256, size, size, drawCracks1);
@@ -165,6 +168,55 @@ function attachDefenderExtras(card, size, y) {
     chevrons.push(c);
   }
 
+  // goldene Plattform (flach am Boden, ab Stufe 2)
+  const sizer = card.parent;
+  const platform = spritePlane('lvl-platform', 192, 192, size * 1.15, size * 1.15, (ctx) => {
+    ctx.strokeStyle = '#ffd23f';
+    ctx.lineWidth = 9; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    for (let i = 0; i <= 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+      const x = 96 + Math.cos(a) * 80, yy = 96 + Math.sin(a) * 80;
+      i === 0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,210,63,0.45)';
+    ctx.lineWidth = 20;
+    ctx.beginPath();
+    for (let i = 0; i <= 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+      const x = 96 + Math.cos(a) * 66, yy = 96 + Math.sin(a) * 66;
+      i === 0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy);
+    }
+    ctx.stroke();
+    // Energie-Kerben
+    ctx.fillStyle = '#fff3b0';
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.arc(96 + Math.cos(a) * 80, 96 + Math.sin(a) * 80, 7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+  platform.rotation.x = -Math.PI / 2;
+  platform.position.y = 0.05;
+  platform.renderOrder = -1;
+  platform.visible = false;
+  sizer.add(platform);
+
+  // Energie-Aura hinter dem Gebäude (Stufe 3)
+  const aura = spritePlane('lvl-aura', 160, 160, size * 1.25, size * 1.25, (ctx) => {
+    const g = ctx.createRadialGradient(80, 80, 20, 80, 80, 78);
+    g.addColorStop(0, 'rgba(255,222,120,0.0)');
+    g.addColorStop(0.7, 'rgba(255,210,63,0.28)');
+    g.addColorStop(1, 'rgba(255,190,50,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(80, 80, 78, 0, Math.PI * 2); ctx.fill();
+  }, { additive: true });
+  aura.position.set(0, y, -0.06);
+  aura.visible = false;
+  card.add(aura);
+
   return {
     setDamage(stage) {
       d1.visible = stage >= 1;
@@ -173,6 +225,11 @@ function attachDefenderExtras(card, size, y) {
     setLevel(level) {
       chevrons[0].visible = level >= 2;
       chevrons[1].visible = level >= 3;
+      platform.visible = level >= 2;
+      aura.visible = level >= 3;
+      // das Gebäude wächst sichtbar mit jeder Stufe
+      const base = sizer.userData.baseScale ?? 1;
+      sizer.scale.setScalar(base * (1 + 0.07 * (level - 1)));
     },
   };
 }
@@ -874,11 +931,46 @@ export function buildEnemyMesh(typeId) {
   switch (typeId) {
     case 'kleinasteroid': return buildAsteroid();
     case 'schrottbrocken': return buildSchrott();
+    case 'berstbrocken': return buildBerstbrocken();
     case 'alienDrohne': return buildDrohne();
+    case 'schwarmling': return buildSchwarmling();
+    case 'phasenspringer': return buildPhasenspringer();
+    case 'panzerwalze': return buildPanzerwalze();
     case 'alienZerstoerer': return buildZerstoerer();
     case 'mutterschiffFragment': return buildMutterschiff();
     default: throw new Error(`Unbekannter Gegner-Typ: ${typeId}`);
   }
+}
+
+// ------------------------------------------------------------
+// Lexikon-Thumbnails: liefert die Sprite-Zeichnung als Daten-URL
+// ------------------------------------------------------------
+const THUMB_KEYS = {
+  defender: {
+    solarkollektor: 'def-solar2', laserturm: 'def-laser2', schildgenerator: 'def-schild2',
+    traktorstrahl: 'def-traktor2', plasmakanone: 'def-plasma2', ionenpuls: 'def-ion',
+    raketenwerfer: 'def-rakete', reparaturdrohne: 'def-repair-drone',
+  },
+  enemy: {
+    kleinasteroid: 'en-asteroid', schrottbrocken: 'en-schrott', berstbrocken: 'en-berst',
+    alienDrohne: 'en-drohne', schwarmling: 'en-schwarmling', phasenspringer: 'en-phase',
+    panzerwalze: 'en-panzer', alienZerstoerer: 'en-zerstoerer', mutterschiffFragment: 'en-boss',
+  },
+};
+
+export function getThumbnail(kind, typeId) {
+  const key = THUMB_KEYS[kind]?.[typeId];
+  if (!key) return null;
+  if (!texCache.has(key)) {
+    // Textur durch einmaliges Bauen erzeugen (Wegwerf-Mesh)
+    try {
+      kind === 'enemy' ? buildEnemyMesh(typeId) : buildDefenderMesh(typeId);
+    } catch {
+      return null;
+    }
+  }
+  const canvas = texCache.get(key)?.source?.data;
+  return canvas?.toDataURL ? canvas.toDataURL() : null;
 }
 
 // unregelmäßige Felsblob-Silhouette (deterministisch pro Textur-Key)
@@ -993,6 +1085,223 @@ function buildSchrott() {
       card.rotation.z = Math.sin(time * 2.1 + phase) * 0.1;
       card.position.y = Math.sin(time * 1.7 + phase) * 0.07;
       warnLight.material.opacity = Math.sin(time * 5 + phase) > 0 ? 0.9 : 0.15;
+    },
+  };
+}
+
+// --- Berstbrocken: instabiler Fels mit glühenden Rissen, zerbirst beim Tod ---
+function buildBerstbrocken() {
+  const g = new THREE.Group();
+  const card = makeRig(g, 1.28, 2.8);
+
+  const rock = spritePlane('en-berst', 256, 256, 2.9, 2.9, (ctx) => {
+    const bumps = [1.05, 0.88, 1.02, 0.92, 1.1, 0.86, 0.98, 0.94, 1.04, 0.9];
+    ctx.fillStyle = rgrad(ctx, 100, 100, 20, 130, [[0, '#a08468'], [0.6, '#7c674f'], [1, '#4f4234']]);
+    rockPath(ctx, 128, 130, 96, bumps); ctx.fill(); o(ctx); ctx.stroke();
+    // glühende Berst-Risse
+    ctx.strokeStyle = '#ff8a3c'; ctx.lineWidth = 8; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(128, 52); ctx.lineTo(118, 96); ctx.lineTo(142, 128); ctx.lineTo(126, 170); ctx.lineTo(140, 204);
+    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(118, 96); ctx.lineTo(84, 112); ctx.lineTo(62, 104); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(142, 128); ctx.lineTo(182, 118); ctx.lineTo(198, 132); ctx.stroke();
+    ctx.strokeStyle = '#ffd9a0'; ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(128, 52); ctx.lineTo(118, 96); ctx.lineTo(142, 128); ctx.lineTo(126, 170);
+    ctx.stroke();
+    // gestresstes Gesicht (zusammengekniffen)
+    ctx.beginPath(); ctx.moveTo(84, 104); ctx.lineTo(104, 112); o(ctx, 8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(172, 112); ctx.lineTo(152, 118); o(ctx, 8); ctx.stroke();
+    ctx.beginPath(); ctx.arc(126, 152, 14, 1.2 * Math.PI, 1.8 * Math.PI); o(ctx, 7); ctx.stroke();
+    // Glanzkante
+    ctx.strokeStyle = 'rgba(255,244,214,0.45)'; ctx.lineWidth = 7; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(112, 96, 74, 1.15 * Math.PI, 1.5 * Math.PI); ctx.stroke();
+  });
+  rock.position.y = 1.45;
+  card.add(rock);
+
+  const glow = glowDisc('berst', 'rgba(255,140,60,0.85)', 1.6);
+  glow.position.set(0.1, 1.45, -0.04);
+  card.add(glow);
+
+  const phase = Math.random() * Math.PI * 2;
+
+  return {
+    group: g,
+    animate(dt, time) {
+      // nervöses Zittern statt gemütlichem Wackeln
+      card.rotation.z = Math.sin(time * 9 + phase) * 0.05;
+      card.position.y = Math.sin(time * 2.2 + phase) * 0.07;
+      glow.material.opacity = 0.45 + Math.sin(time * 6 + phase) * 0.3;
+    },
+  };
+}
+
+// --- Schwarmling: winziger Beißer mit einem Auge und Stummelflügeln ---
+function buildSchwarmling() {
+  const g = new THREE.Group();
+  const card = makeRig(g, 1.15, 1.7);
+
+  const bug = spritePlane('en-schwarmling', 192, 192, 1.9, 1.9, (ctx) => {
+    // Stummelflügel
+    ctx.fillStyle = 'rgba(190,240,200,0.55)';
+    ctx.strokeStyle = '#1b2447'; ctx.lineWidth = 6; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.ellipse(52, 74, 30, 14, -0.6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(140, 74, 30, 14, 0.6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    // Kugel-Körper
+    ctx.fillStyle = rgrad(ctx, 86, 88, 8, 60, [[0, '#c26bd6'], [0.6, '#8e24aa'], [1, '#5c1687']]);
+    ctx.beginPath(); ctx.arc(96, 104, 52, 0, Math.PI * 2); ctx.fill(); o(ctx, 7); ctx.stroke();
+    // ein großes Auge
+    ctx.fillStyle = '#aefc4b';
+    ctx.beginPath(); ctx.arc(88, 96, 20, 0, Math.PI * 2); ctx.fill(); o(ctx, 6); ctx.stroke();
+    ctx.fillStyle = OUTLINE;
+    ctx.beginPath(); ctx.arc(81, 98, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(78, 94, 3.5, 0, Math.PI * 2); ctx.fill();
+    // Beißer-Mund
+    ctx.fillStyle = '#1c0330';
+    ctx.beginPath();
+    ctx.moveTo(64, 132); ctx.lineTo(76, 142); ctx.lineTo(88, 132); ctx.lineTo(100, 142); ctx.lineTo(112, 132);
+    ctx.lineTo(112, 146) ; ctx.lineTo(64, 146); ctx.closePath(); ctx.fill();
+    o(ctx, 5); ctx.stroke();
+    // Fühler
+    ctx.beginPath(); ctx.moveTo(116, 62); ctx.lineTo(128, 44); o(ctx, 5); ctx.stroke();
+    ctx.fillStyle = '#ff4dd2';
+    ctx.beginPath(); ctx.arc(131, 39, 6, 0, Math.PI * 2); ctx.fill(); o(ctx, 4); ctx.stroke();
+  });
+  bug.position.y = 1.15;
+  card.add(bug);
+
+  const engine = glowDisc('schwarm-engine', 'rgba(150,255,90,0.85)', 1.0);
+  engine.position.set(0, 0.4, 0.04);
+  engine.scale.set(1, 0.4, 1);
+  card.add(engine);
+
+  const phase = Math.random() * Math.PI * 2;
+
+  return {
+    group: g,
+    animate(dt, time) {
+      card.position.y = Math.sin(time * 7 + phase) * 0.12;
+      card.rotation.z = Math.sin(time * 5 + phase) * 0.14;
+      engine.material.opacity = 0.5 + Math.sin(time * 13 + phase) * 0.35;
+    },
+  };
+}
+
+// --- Phasenspringer: durchscheinendes Energiewesen mit Phasenringen ---
+function buildPhasenspringer() {
+  const g = new THREE.Group();
+  const card = makeRig(g, 1.25, 2.4);
+
+  const ghost = spritePlane('en-phase', 224, 256, 2.5, 2.85, (ctx) => {
+    // Tropfen-Körper, halbtransparent
+    const grd = lgrad(ctx, 0, 40, 0, 230, [
+      [0, 'rgba(150,240,255,0.95)'], [0.5, 'rgba(120,140,255,0.8)'], [1, 'rgba(140,80,220,0.35)'],
+    ]);
+    ctx.fillStyle = grd;
+    ctx.strokeStyle = '#1b2447'; ctx.lineWidth = 8; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(112, 30);
+    ctx.quadraticCurveTo(180, 60, 176, 130);
+    ctx.quadraticCurveTo(172, 190, 140, 226);
+    ctx.quadraticCurveTo(112, 244, 84, 226);
+    ctx.quadraticCurveTo(52, 190, 48, 130);
+    ctx.quadraticCurveTo(44, 60, 112, 30);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Phasen-Ringe um den Körper
+    ctx.strokeStyle = 'rgba(190,250,255,0.85)'; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.ellipse(112, 110, 76, 14, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = 'rgba(194,107,214,0.75)'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.ellipse(112, 160, 62, 11, 0, 0, Math.PI * 2); ctx.stroke();
+    // großes hypnotisches Auge
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(112, 84, 24, 0, Math.PI * 2); ctx.fill(); o(ctx, 6); ctx.stroke();
+    ctx.fillStyle = '#7b1fa2';
+    ctx.beginPath(); ctx.arc(112, 86, 13, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(107, 81, 4, 0, Math.PI * 2); ctx.fill();
+    // kleiner o-Mund
+    ctx.fillStyle = OUTLINE;
+    ctx.beginPath(); ctx.ellipse(112, 128, 8, 11, 0, 0, Math.PI * 2); ctx.fill();
+    // Funken im Saum
+    ctx.fillStyle = '#c9fbff';
+    for (const [fx, fy] of [[76, 196], [148, 200], [112, 216]]) {
+      ctx.beginPath(); ctx.arc(fx, fy, 5, 0, Math.PI * 2); ctx.fill();
+    }
+  });
+  ghost.position.y = 1.55;
+  card.add(ghost);
+
+  const halo = glowDisc('phase-halo', 'rgba(140,120,255,0.7)', 2.4);
+  halo.position.set(0, 1.55, -0.05);
+  card.add(halo);
+
+  const phase = Math.random() * Math.PI * 2;
+
+  return {
+    group: g,
+    animate(dt, time) {
+      card.position.y = Math.sin(time * 2.4 + phase) * 0.18;
+      card.rotation.z = Math.sin(time * 1.6 + phase) * 0.07;
+      ghost.material.opacity = 0.75 + Math.sin(time * 4 + phase) * 0.2;
+      halo.material.opacity = 0.4 + Math.sin(time * 4 + phase) * 0.25;
+    },
+  };
+}
+
+// --- Panzerwalze: rollende Alien-Festung mit Sichtschlitz ---
+function buildPanzerwalze() {
+  const g = new THREE.Group();
+  const card = makeRig(g, 1.25, 3.4);
+
+  const tank = spritePlane('en-panzer', 256, 224, 3.3, 2.9, (ctx) => {
+    // Laufketten-Walze
+    ctx.fillStyle = lgrad(ctx, 0, 130, 0, 200, [[0, '#3a4258'], [1, '#20263a']]);
+    rr(ctx, 30, 132, 196, 64, 32); ctx.fill(); o(ctx); ctx.stroke();
+    // Ketten-Segmente
+    ctx.fillStyle = '#535e7c';
+    for (let i = 0; i < 6; i++) {
+      ctx.beginPath(); ctx.arc(58 + i * 28, 164, 11, 0, Math.PI * 2); ctx.fill();
+      o(ctx, 4); ctx.stroke();
+    }
+    // gewölbter Panzer-Dom
+    ctx.fillStyle = lgrad(ctx, 0, 40, 0, 140, [[0, '#8e5bb0'], [0.55, '#6a3691'], [1, '#472066']]);
+    ctx.beginPath(); ctx.arc(128, 134, 88, Math.PI, 0); ctx.closePath(); ctx.fill(); o(ctx); ctx.stroke();
+    // Panzerplatten-Fugen + Nieten
+    ctx.strokeStyle = 'rgba(25,10,45,0.6)'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(128, 134, 62, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(128, 46); ctx.lineTo(128, 70); ctx.stroke();
+    ctx.fillStyle = '#b98ad2';
+    for (const a of [1.15, 1.4, 1.6, 1.85]) {
+      const x = 128 + Math.cos(a * Math.PI) * 76, yy = 134 + Math.sin(a * Math.PI) * 76;
+      ctx.beginPath(); ctx.arc(x, yy, 6, 0, Math.PI * 2); ctx.fill();
+    }
+    // Sichtschlitz mit bösen Augen
+    ctx.fillStyle = '#12081f';
+    rr(ctx, 82, 96, 92, 26, 13); ctx.fill(); o(ctx, 6); ctx.stroke();
+    angryEye(ctx, 110, 109, 9, -1);
+    angryEye(ctx, 146, 109, 9, 1);
+    // Frontal-Ramme
+    ctx.fillStyle = '#3a4258';
+    ctx.beginPath();
+    ctx.moveTo(38, 120); ctx.lineTo(14, 134); ctx.lineTo(38, 148);
+    ctx.closePath(); ctx.fill(); o(ctx, 6); ctx.stroke();
+    // Glanz
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.beginPath(); ctx.ellipse(96, 70, 26, 10, -0.4, 0, Math.PI * 2); ctx.fill();
+  });
+  tank.position.y = 1.45;
+  card.add(tank);
+
+  const phase = Math.random() * Math.PI * 2;
+
+  return {
+    group: g,
+    animate(dt, time) {
+      // schwerfälliges Stampfen
+      card.position.y = Math.abs(Math.sin(time * 2.2 + phase)) * 0.06;
+      card.rotation.z = Math.sin(time * 2.2 + phase) * 0.02;
     },
   };
 }

@@ -1,7 +1,11 @@
-// HTML/CSS-Overlay: Einheiten-Leiste, Ressourcen, Integrität, Wellen, Screens.
+// HTML/CSS-Overlay: Einheiten-Leiste (mit Drag & Drop), Ressourcen, Integrität,
+// Wellen, Ausbau-Menü mit zwei Pfaden, Lexikon und Screens.
 
-import { DEFENDER_TYPES, DEFENDER_ORDER } from '../data/defenders.js';
+import { DEFENDER_TYPES, DEFENDER_ORDER, upgradeOptionsFor } from '../data/defenders.js';
+import { ENEMY_TYPES } from '../data/enemies.js';
 import { START_INTEGRITY } from '../data/config.js';
+import { SKILLS, unlockSourceForTower } from '../systems/progress.js';
+import { getThumbnail } from '../entities/meshFactory.js';
 
 // Cartoon-SVG-Icons pro Einheit (passend zu den 2D-Sprites, mit Gesichtern)
 const ICONS = {
@@ -118,21 +122,59 @@ export class HUD {
       gameoverScreen: document.getElementById('gameover-screen'),
       gameoverStats: document.getElementById('gameover-stats'),
       winScreen: document.getElementById('win-screen'),
+      winUnlocks: document.getElementById('win-unlocks'),
       buildMenu: document.getElementById('build-menu'),
+      levelSelect: document.getElementById('level-select'),
+      lexicon: document.getElementById('lexicon-screen'),
+      lexContent: document.getElementById('lex-content'),
+      dragGhost: document.getElementById('drag-ghost'),
     };
 
     this.buildIntegrity();
-    this.buildUnitBar();
     this.bannerTimeout = null;
+    this.progress = null;
 
-    document.querySelectorAll('.level-btn[data-level]').forEach((btn) => {
-      btn.addEventListener('click', () => this.cb.onStartLevel(Number(btn.dataset.level)));
-    });
     document.getElementById('retry-btn').addEventListener('click', () => this.cb.onRestart());
     document.getElementById('win-restart-btn').addEventListener('click', () => this.cb.onRestart());
     document.querySelectorAll('.to-level-select').forEach((btn) => {
       btn.addEventListener('click', () => this.cb.onLevelSelect());
     });
+    document.getElementById('lexicon-btn').addEventListener('click', () => this.showLexicon());
+    document.getElementById('lexicon-close').addEventListener('click', () => {
+      this.el.lexicon.classList.add('hidden');
+    });
+  }
+
+  // Fortschritts-abhängige UI (Level-Buttons + Einheiten-Leiste) neu aufbauen
+  refreshMeta(progress, levels) {
+    this.progress = progress;
+    this.levels = levels;
+    this.buildLevelSelect();
+    this.buildUnitBar();
+  }
+
+  buildLevelSelect() {
+    this.el.levelSelect.innerHTML = '';
+    this.levels.forEach((level, i) => {
+      const locked = i + 1 > this.progress.levelsUnlocked;
+      const btn = document.createElement('button');
+      btn.className = 'level-btn' + (locked ? ' locked' : '');
+      btn.innerHTML = locked
+        ? `🔒 Level ${i + 1} — ${level.name}<span class="lock-hint">Gewinne Level ${i}, um freizuschalten</span>`
+        : `Level ${i + 1} — ${level.name}`;
+      if (!locked) btn.addEventListener('click', () => this.cb.onStartLevel(i));
+      this.el.levelSelect.appendChild(btn);
+    });
+    // freigeschaltete Skills anzeigen
+    const owned = this.progress.skills.map((s) => SKILLS[s]).filter(Boolean);
+    let skillLine = document.getElementById('skill-line');
+    if (owned.length > 0 && skillLine) {
+      skillLine.innerHTML = 'Aktive Skills: ' +
+        owned.map((s) => `<span class="skill-chip" title="${s.description}">${s.icon} ${s.name}</span>`).join(' ');
+      skillLine.classList.remove('hidden');
+    } else if (skillLine) {
+      skillLine.classList.add('hidden');
+    }
   }
 
   buildIntegrity() {
@@ -148,24 +190,34 @@ export class HUD {
 
   buildUnitBar() {
     this.el.bottomBar.innerHTML = '';
+    this.cards = {};
     for (const typeId of DEFENDER_ORDER) {
       const d = DEFENDER_TYPES[typeId];
+      const unlocked = this.progress?.towers.includes(typeId) ?? true;
       const card = document.createElement('div');
-      card.className = 'unit-card';
+      card.className = 'unit-card' + (unlocked ? '' : ' tower-locked');
       card.innerHTML = `
         ${ICONS[typeId]}
         <div class="unit-name">${d.name}</div>
         <div class="unit-cost">${boltSvg}${d.cost}</div>
         <div class="cooldown-overlay"></div>
+        ${unlocked ? '' : '<div class="lock-overlay">🔒</div>'}
       `;
-      card.addEventListener('click', () => {
-        if (this.selectedType === typeId) {
-          this.select(null);
-        } else {
-          this.select(typeId);
-        }
-      });
-      card.addEventListener('mouseenter', () => this.showUnitTooltip(d, card));
+      if (unlocked) {
+        // Drag & Drop: pointerdown startet Auswahl + Ziehen, das Spiel regelt den Rest
+        card.addEventListener('pointerdown', (ev) => {
+          ev.preventDefault();
+          this.cb.onDragStart(typeId, ev);
+        });
+        card.addEventListener('mouseenter', () => this.showUnitTooltip(d, card));
+      } else {
+        const src = unlockSourceForTower(typeId);
+        card.addEventListener('mouseenter', () => this.showUnitTooltip({
+          name: d.name,
+          description: `Noch gesperrt. ${src ? `Gewinne Level ${src}, um dieses Gebäude freizuschalten.` : ''}`,
+          cost: 0, cooldown: 0,
+        }, card));
+      }
       card.addEventListener('mouseleave', () => this.hideTooltip());
       this.el.bottomBar.appendChild(card);
       this.cards[typeId] = card;
@@ -180,8 +232,9 @@ export class HUD {
       <div class="unit-cost">60&nbsp;% zurück</div>
       <div class="cooldown-overlay"></div>
     `;
-    rec.addEventListener('click', () => {
-      this.select(this.selectedType === 'recycler' ? null : 'recycler');
+    rec.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();
+      this.cb.onDragStart('recycler', ev);
     });
     rec.addEventListener('mouseenter', () => {
       this.showUnitTooltip({
@@ -208,6 +261,7 @@ export class HUD {
     for (const [id, card] of Object.entries(this.cards)) {
       const d = DEFENDER_TYPES[id];
       if (!d) continue; // Recycler-Werkzeug ist immer verfügbar
+      if (card.classList.contains('tower-locked')) continue;
       const cdRemaining = cooldowns[id] ?? 0;
       const affordable = energy >= d.cost;
       card.classList.toggle('unaffordable', !affordable || cdRemaining > 0);
@@ -293,30 +347,149 @@ export class HUD {
     const stars = '★'.repeat(defender.level)
       + `<span class="star-empty">${'★'.repeat(3 - defender.level)}</span>`;
     const canAfford = opts.energy >= defender.upgradeCost;
-    const upgradeBtn = defender.canUpgrade
-      ? `<button class="menu-btn upgrade-btn ${canAfford ? '' : 'disabled'}">
-           Aufrüsten ${boltSvg}${defender.upgradeCost}
-         </button>`
+    const options = upgradeOptionsFor(d);
+    const counts = { a: defender.upA, b: defender.upB };
+    const upgradeBtns = defender.canUpgrade
+      ? `<div class="menu-upgrade-hint">Ausbau wählen (${boltSvg}${defender.upgradeCost}):</div>` +
+        options.map((o) => `
+          <button class="menu-btn upgrade-btn ${canAfford ? '' : 'disabled'}" data-path="${o.key}">
+            <span class="path-icon">${o.icon}</span> ${o.label}
+            ${counts[o.key] > 0 ? `<span class="path-count">×${counts[o.key]}</span>` : ''}
+          </button>`).join('')
       : `<div class="menu-maxed">Vollausbau erreicht</div>`;
     menu.innerHTML = `
       <div class="menu-title">${d.name} <span class="menu-stars">${stars}</span></div>
       <div class="menu-hp">Hülle: ${Math.ceil(defender.hp)} / ${defender.maxHp}</div>
-      ${upgradeBtn}
+      ${upgradeBtns}
       <button class="menu-btn sell-btn">Abreißen ${boltSvg}+${defender.refundValue}</button>
     `;
     menu.classList.remove('hidden');
     // Position: neben dem Klickpunkt, aber im Bildschirm halten
-    const mw = 210, mh = 150;
+    const mw = 230, mh = 210;
     menu.style.left = `${Math.min(window.innerWidth - mw - 12, x + 16)}px`;
     menu.style.top = `${Math.min(window.innerHeight - mh - 12, Math.max(12, y - 40))}px`;
 
-    const up = menu.querySelector('.upgrade-btn');
-    if (up && canAfford) up.addEventListener('click', (ev) => { ev.stopPropagation(); opts.onUpgrade(); });
+    if (canAfford) {
+      menu.querySelectorAll('.upgrade-btn').forEach((btn) => {
+        btn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          opts.onUpgrade(btn.dataset.path);
+        });
+      });
+    }
     menu.querySelector('.sell-btn').addEventListener('click', (ev) => { ev.stopPropagation(); opts.onSell(); });
   }
 
   hideBuildMenu() {
     this.el.buildMenu?.classList.add('hidden');
+  }
+
+  // ---------- Drag & Drop-Geist ----------
+
+  showDragGhost(typeId, x, y) {
+    const icon = typeId === 'recycler' ? RECYCLER_ICON : ICONS[typeId];
+    this.el.dragGhost.innerHTML = icon ?? '';
+    this.el.dragGhost.classList.remove('hidden');
+    this.moveDragGhost(x, y);
+  }
+
+  moveDragGhost(x, y) {
+    this.el.dragGhost.style.left = `${x - 26}px`;
+    this.el.dragGhost.style.top = `${y - 30}px`;
+  }
+
+  hideDragGhost() {
+    this.el.dragGhost.classList.add('hidden');
+  }
+
+  // ---------- Sieg-Screen mit Freischaltungen ----------
+
+  showWinScreen(unlocks, levels, wonLevelIndex) {
+    const parts = [];
+    for (const lv of unlocks?.levels ?? []) {
+      parts.push(`<div class="unlock-item">🗺️ Neues Level: <b>Level ${lv} — ${levels[lv - 1].name}</b></div>`);
+    }
+    for (const t of unlocks?.towers ?? []) {
+      const d = DEFENDER_TYPES[t];
+      parts.push(`<div class="unlock-item">🏗️ Neues Gebäude: <b>${d.name}</b> — ${d.description}</div>`);
+    }
+    for (const s of unlocks?.skills ?? []) {
+      const sk = SKILLS[s];
+      parts.push(`<div class="unlock-item">${sk.icon} Neuer Skill: <b>${sk.name}</b> — ${sk.description}</div>`);
+    }
+    this.el.winUnlocks.innerHTML = parts.length
+      ? `<div class="unlock-title">FREIGESCHALTET</div>${parts.join('')}`
+      : '';
+    this.showScreen('win');
+  }
+
+  // ---------- Lexikon ----------
+
+  showLexicon() {
+    if (!this.el.lexContent.dataset.built) {
+      this.buildLexicon();
+      this.el.lexContent.dataset.built = '1';
+    }
+    // Sperr-Status aktualisieren
+    this.el.lexContent.querySelectorAll('[data-tower]').forEach((card) => {
+      const unlocked = this.progress?.towers.includes(card.dataset.tower);
+      card.classList.toggle('lex-locked', !unlocked);
+    });
+    this.el.lexicon.classList.remove('hidden');
+  }
+
+  buildLexicon() {
+    const secDef = [`<h2 class="lex-heading">Gebäude</h2><div class="lex-grid">`];
+    for (const id of DEFENDER_ORDER) {
+      const d = DEFENDER_TYPES[id];
+      const options = upgradeOptionsFor(d);
+      const stats = [
+        `Kosten ${d.cost}`, `Hülle ${d.hp}`,
+        d.damage ? `Schaden ${d.damage}` : null,
+        d.fireInterval ? `alle ${d.fireInterval} s` : null,
+        d.pulseInterval ? `Puls alle ${d.pulseInterval} s` : null,
+        d.range ? `Reichweite ${d.range}` : null,
+        d.healPerSec ? `Heilung ${d.healPerSec}/s` : null,
+      ].filter(Boolean).join(' · ');
+      secDef.push(`
+        <div class="lex-card" data-tower="${id}">
+          <div class="lex-thumb">${ICONS[id]}</div>
+          <div class="lex-body">
+            <div class="lex-name">${d.name}</div>
+            <div class="lex-desc">${d.description}</div>
+            <div class="lex-stats">${stats}</div>
+            <div class="lex-stats">Ausbau: ${options.map((o) => `${o.icon} ${o.label}`).join(' oder ')}</div>
+          </div>
+          <div class="lex-lock">🔒</div>
+        </div>`);
+    }
+    secDef.push('</div>');
+
+    const secEn = [`<h2 class="lex-heading">Feinde</h2><div class="lex-grid">`];
+    for (const [id, e] of Object.entries(ENEMY_TYPES)) {
+      const thumb = getThumbnail('enemy', id);
+      const stats = [
+        `Hülle ${e.hp}`, `Tempo ${e.speed}`,
+        e.integrityDamage > 1 ? `Durchbruch −${e.integrityDamage} Integrität` : null,
+        e.rangedAttack ? 'Fernangriff' : null,
+        e.teleport ? 'Teleport' : null,
+        e.resist ? 'gepanzert' : null,
+        e.splitInto ? 'zerbirst' : null,
+        e.isBoss ? 'BOSS' : null,
+      ].filter(Boolean).join(' · ');
+      secEn.push(`
+        <div class="lex-card">
+          <div class="lex-thumb">${thumb ? `<img src="${thumb}" alt="${e.name}">` : '❓'}</div>
+          <div class="lex-body">
+            <div class="lex-name">${e.name}</div>
+            <div class="lex-desc">${e.description}</div>
+            <div class="lex-stats">${stats}</div>
+          </div>
+        </div>`);
+    }
+    secEn.push('</div>');
+
+    this.el.lexContent.innerHTML = secDef.join('') + secEn.join('');
   }
 
   floatText(x, y, text) {

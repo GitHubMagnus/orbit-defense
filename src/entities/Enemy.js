@@ -17,6 +17,7 @@ export class Enemy {
     this.empUntil = 0;         // EMP-Power-up: gelähmt bis Zeitpunkt
     this.rangedTimer = data.rangedAttack ? data.rangedAttack.interval * 0.6 : 0;
     this.minionTimer = data.spawnMinions ? data.spawnMinions.interval : 0;
+    this.teleportTimer = data.teleport ? data.teleport.interval * 0.8 : 0;
     this.waveOffset = Math.random() * Math.PI * 2;
 
     const built = buildEnemyMesh(data.id);
@@ -36,7 +37,10 @@ export class Enemy {
     return this.group.position;
   }
 
-  takeDamage(amount) {
+  // source = Projektil-/Effektart; gepanzerte Gegner widerstehen bestimmten Quellen
+  takeDamage(amount, source) {
+    const resist = source ? this.data.resist?.[source] : undefined;
+    if (resist !== undefined) amount *= resist;
     this.hp -= amount;
     if (this.hp <= 0) {
       this.dead = true;
@@ -84,6 +88,20 @@ export class Enemy {
           const muzzle = this.position.clone().add(new THREE.Vector3(-1.4, 1.4, 0));
           ctx.spawnEnemyBolt(muzzle, target, ra.damage);
         }
+      }
+    }
+
+    // Phasenspringer: teleportiert periodisch ein Stück nach vorn
+    if (this.data.teleport) {
+      this.teleportTimer -= dt;
+      if (this.teleportTimer <= 0) {
+        this.teleportTimer = this.data.teleport.interval;
+        const from = this.position.clone().add(new THREE.Vector3(0, 1.4, 0));
+        this.position.x = Math.max(CORE_X + 2, this.position.x - this.data.teleport.distance);
+        const to = this.position.clone().add(new THREE.Vector3(0, 1.4, 0));
+        ctx.particles.flash(from, 0xc26bd6);
+        ctx.particles.flash(to, 0x7df3ff);
+        ctx.particles.burstImpact(to, 0xc26bd6);
       }
     }
 

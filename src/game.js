@@ -13,6 +13,7 @@ import { HUD } from './ui/hud.js';
 import { DEFENDER_TYPES } from './data/defenders.js';
 import { ENEMY_TYPES } from './data/enemies.js';
 import { LEVELS } from './data/levels.js';
+import { loadProgress, unlockAfterWin } from './systems/progress.js';
 import {
   LANES, COLS, CELL_X, laneZ, colX, GRID_LEFT_X, SPAWN_X,
   START_ENERGY, START_INTEGRITY, LANE_SPACING,
@@ -24,12 +25,15 @@ export class Game {
     this.particles = new ParticleSystem(this.world.scene);
     this.crystals = new CrystalSystem(this.world.scene);
     this.powerups = new PowerUpSystem(this.world.scene);
+    this.progress = loadProgress();
     this.hud = new HUD({
       onSelectUnit: (t) => { this.selectedType = t; },
       onStartLevel: (i) => this.startLevel(i),
       onRestart: () => this.startLevel(this.currentLevel),
       onLevelSelect: () => this.hud.showScreen('start'),
+      onDragStart: (t, ev) => this.startDrag(t, ev),
     });
+    this.hud.refreshMeta(this.progress, LEVELS);
 
     this.phase = 'menu'; // menu | playing | gameover | win
     this.currentLevel = 0;
@@ -56,12 +60,14 @@ export class Game {
   // ---------- Level-Lebenszyklus ----------
 
   startLevel(levelIndex) {
+    if (levelIndex + 1 > this.progress.levelsUnlocked) return; // noch gesperrt
     this.currentLevel = levelIndex;
     this.clearEntities();
     this.crystals.reset();
     this.powerups.reset();
 
-    this.energy = START_ENERGY;
+    // Skill "Not-Reserve": +50 Start-Energie
+    this.energy = START_ENERGY + (this.progress.skills.includes('notreserve') ? 50 : 0);
     this.integrity = START_INTEGRITY;
     this.grid = Array.from({ length: LANES }, () => Array(COLS).fill(null));
     this.cooldowns = {};
@@ -101,9 +107,32 @@ export class Game {
   }
 
   win() {
-    // kleiner Moment für den letzten Kill, dann Sieg-Screen
-    this.phase = 'win';
-    setTimeout(() => this.hud.showScreen('win'), 900);
+    // Feuerwerks-Animation, dann Sieg-Screen mit Freischaltungen
+    this.phase = 'winAnim';
+    this.winAnimT = 0;
+    this.fireworkTimer = 0;
+    this.hud.showBanner('SEKTOR GESICHERT!', LEVELS[this.currentLevel].name);
+    this.pendingUnlocks = unlockAfterWin(this.progress, this.currentLevel, LEVELS.length);
+    this.hud.refreshMeta(this.progress, LEVELS);
+  }
+
+  updateWinAnim(dt) {
+    this.winAnimT += dt;
+    this.fireworkTimer -= dt;
+    if (this.fireworkTimer <= 0) {
+      this.fireworkTimer = 0.28;
+      // Feuerwerk im sichtbaren Bereich über dem Spielfeld
+      const pos = new THREE.Vector3(
+        -18 + Math.random() * 36,
+        2.5 + Math.random() * 4,
+        -10 + Math.random() * 12
+      );
+      this.particles.firework(pos);
+    }
+    if (this.winAnimT >= 3.4) {
+      this.phase = 'win';
+      this.hud.showWinScreen(this.pendingUnlocks, LEVELS, this.currentLevel);
+    }
   }
 
   // ---------- Spawning ----------
@@ -164,6 +193,44 @@ export class Game {
         this.hud.hideBuildMenu();
       }
     });
+    // Drag & Drop aus der Einheiten-Leiste
+    window.addEventListener('pointermove', (ev) => {
+      if (!this.drag) return;
+      const dx = ev.clientX - this.drag.startX;
+      const dy = ev.clientY - this.drag.startY;
+      if (dx * dx + dy * dy > 64) this.drag.moved = true;
+      this.hud.moveDragGhost(ev.clientX, ev.clientY);
+      if (this.drag.moved) this.onPointerMove(ev); // Zell-Highlight folgt
+    });
+    window.addEventListener('pointerup', (ev) => {
+      if (!this.drag) return;
+      const drag = this.drag;
+      this.drag = null;
+      this.hud.hideDragGhost();
+      if (!drag.moved) {
+        // kurzer Klick: Auswahl bleibt bestehen (bzw. wurde getoggelt)
+        return;
+      }
+      // echter Drag: über dem Spielfeld loslassen = platzieren/anwenden
+      if (ev.target === this.world.renderer.domElement) {
+        this.handleFieldAction(ev);
+      }
+      this.hud.select(null);
+      this.highlight.visible = false;
+    });
+  }
+
+  // von der HUD-Karte aus gestartet (pointerdown auf einer Einheiten-Karte)
+  startDrag(typeId, ev) {
+    if (this.phase !== 'playing') return;
+    // Klick auf bereits gewählte Karte: abwählen (Toggle wie bisher)
+    if (this.selectedType === typeId) {
+      this.hud.select(null);
+      return;
+    }
+    this.hud.select(typeId);
+    this.drag = { type: typeId, startX: ev.clientX, startY: ev.clientY, moved: false };
+    this.hud.showDragGhost(typeId, ev.clientX, ev.clientY);
   }
 
   updateRaycaster(ev) {
@@ -221,33 +288,39 @@ export class Game {
       return;
     }
 
-    // 2) Energie-Blitz einsammeln
+    // 2) Energie-Blitz einsammeln (Skill "Ladekerne": +10 extra)
     const collected = this.crystals.tryCollect(this.raycaster);
     if (collected) {
-      this.energy += collected.value;
+      const value = collected.value + (this.progress.skills.includes('ladekerne') ? 10 : 0);
+      this.energy += value;
       this.hud.setEnergy(this.energy, true);
       this.particles.burstCrystal(collected.position);
-      this.hud.floatText(ev.clientX, ev.clientY, `+${collected.value}`);
+      this.hud.floatText(ev.clientX, ev.clientY, `+${value}`);
       return;
     }
 
+    this.handleFieldAction(ev);
+  }
+
+  // Recycler / Ausbau-Menü / Platzierung — genutzt von Klick UND Drag & Drop
+  handleFieldAction(ev) {
     const cell = this.pickCell(ev);
     if (!cell) return;
     const occupant = this.grid[cell.lane][cell.col];
 
-    // 3) Recycler-Werkzeug: Gebäude abreißen
+    // Recycler-Werkzeug: Gebäude abreißen
     if (this.selectedType === 'recycler') {
       if (occupant) this.sellDefender(occupant, ev.clientX, ev.clientY);
       return;
     }
 
-    // 4) Klick auf bestehendes Gebäude: Ausbau-Menü öffnen
+    // Klick/Drop auf bestehendes Gebäude: Ausbau-Menü öffnen
     if (occupant) {
       this.openBuildMenu(occupant, ev.clientX, ev.clientY);
       return;
     }
 
-    // 5) Einheit platzieren
+    // Einheit platzieren
     if (!this.selectedType) return;
     const data = DEFENDER_TYPES[this.selectedType];
     if (this.energy < data.cost) return;
@@ -258,7 +331,9 @@ export class Game {
     this.defenders.push(defender);
     this.grid[cell.lane][cell.col] = defender;
     this.energy -= data.cost;
-    this.cooldowns[data.id] = data.cooldown;
+    // Skill "Schnell-Kühlung": Abklingzeiten -25 %
+    const cdFactor = this.progress.skills.includes('schnellkuehlung') ? 0.75 : 1;
+    this.cooldowns[data.id] = data.cooldown * cdFactor;
     this.hud.setEnergy(this.energy);
     this.particles.burstImpact(defender.position.clone().add(new THREE.Vector3(0, 1, 0)));
   }
@@ -275,12 +350,13 @@ export class Game {
   openBuildMenu(defender, x, y) {
     this.hud.showBuildMenu(defender, x, y, {
       energy: this.energy,
-      onUpgrade: () => {
+      onUpgrade: (pathKey) => {
         if (!defender.canUpgrade || this.energy < defender.upgradeCost) return;
         this.energy -= defender.upgradeCost;
-        defender.upgrade();
+        defender.upgrade(pathKey);
         this.hud.setEnergy(this.energy, true);
         this.particles.burstImpact(defender.position.clone().add(new THREE.Vector3(0, 2.4, 0)), 0xffd23f);
+        this.particles.shockwave(defender.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xffd23f, 3);
         // Menü mit frischen Werten neu zeichnen
         this.openBuildMenu(defender, x, y);
       },
@@ -302,7 +378,7 @@ export class Game {
       this.particles.shockwave(position, 0xc26bd6, 12);
       this.particles.flash(position, 0xc26bd6);
       for (const e of this.enemies) {
-        e.takeDamage(60);
+        e.takeDamage(60, 'emp');
         e.empUntil = this.elapsed + 3;
         if (!e.dead) {
           this.particles.burstImpact(e.position.clone().add(new THREE.Vector3(0, 1.4, 0)), 0xc26bd6);
@@ -357,6 +433,8 @@ export class Game {
 
     if (this.phase === 'playing') {
       this.update(dt, time);
+    } else if (this.phase === 'winAnim') {
+      this.updateWinAnim(dt);
     }
 
     this.world.composer.render();
@@ -402,13 +480,13 @@ export class Game {
       const hit = p.update(dt);
       if (hit && !hit.dead) {
         const impactPos = p.mesh.position.clone();
-        hit.takeDamage(p.damage);
+        hit.takeDamage(p.damage, p.kind);
         if (p.splash > 0) {
           // Flächenschaden: Nachbarn am Einschlagsort mit 60 % treffen
           for (const e of this.enemies) {
             if (e === hit || e.dead) continue;
             if (e.position.distanceTo(impactPos) <= p.splash) {
-              e.takeDamage(p.damage * 0.6);
+              e.takeDamage(p.damage * 0.6, p.kind);
             }
           }
           this.particles.shockwave(impactPos, 0xff8a5c, p.splash * 1.8);
@@ -440,6 +518,14 @@ export class Game {
           this.particles.burstAlien(pos, e.data.isBoss ? 40 : 14);
         } else {
           this.particles.burstRock(pos, 12);
+        }
+        // Berstbrocken & Co.: zerbirst in kleinere Gegner
+        if (e.data.splitInto) {
+          const s = e.data.splitInto;
+          for (let k = 0; k < s.count; k++) {
+            this.spawnMinion(s.type, e.lane, e.position.x + 0.6 - k * 1.2);
+          }
+          this.particles.shockwave(pos, 0xff8a3c, 3.5);
         }
         this.world.scene.remove(e.group);
         this.enemies.splice(i, 1);

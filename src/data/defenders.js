@@ -117,6 +117,48 @@ export const DEFENDER_ORDER = [
   'reparaturdrohne',
 ];
 
-// Ausbau-System: Stufe 1-3, Kosten pro Stufe = 75 % der Baukosten
+// Ausbau-System: Stufe 1-3, Kosten pro Stufe = 75 % der Baukosten.
+// Pro Ausbau wählt der Spieler einen von zwei Pfaden (A oder B).
 export const MAX_LEVEL = 3;
 export const UPGRADE_COST_FACTOR = 0.75;
+
+// Die beiden Ausbau-Optionen je Verhalten (A = Kraft-Pfad, B = Tempo-Pfad)
+export function upgradeOptionsFor(data) {
+  switch (data.behavior) {
+    case 'shooter':
+      return [
+        { key: 'a', icon: '⚔', label: 'Schaden +50 %' },
+        { key: 'b', icon: '⚡', label: 'Feuerrate +33 %' },
+      ];
+    case 'pulse':
+      return [
+        { key: 'a', icon: '⚔', label: 'Schaden +50 %' },
+        { key: 'b', icon: '⚡', label: 'Pulsrate +33 %' },
+      ];
+    case 'generator':
+      return [
+        { key: 'a', icon: '🛡', label: 'Hülle +80 %' },
+        { key: 'b', icon: '⚡', label: 'Produktion +33 %' },
+      ];
+    case 'blocker':
+      return [
+        { key: 'a', icon: '🛡', label: 'Panzerung +80 %' },
+        { key: 'b', icon: '✚', label: 'Selbstreparatur' },
+      ];
+    case 'slower':
+      return [
+        { key: 'a', icon: '🌀', label: 'Sog +12 %' },
+        { key: 'b', icon: '⌖', label: 'Reichweite +25 %' },
+      ];
+    case 'healer':
+      return [
+        { key: 'a', icon: '✚', label: 'Heilrate +50 %' },
+        { key: 'b', icon: '⌖', label: 'Reichweite +25 %' },
+      ];
+    default:
+      return [
+        { key: 'a', icon: '🛡', label: 'Hülle +50 %' },
+        { key: 'b', icon: '🛡', label: 'Hülle +50 %' },
+      ];
+  }
+}

@@ -48,11 +48,24 @@
       Sammle Energie-Blitze und Power-ups, platziere Türme in den Korridoren, rüste sie aus
       und halte die Station, bis der Sektor gesichert ist.
     </p>
-    <div id="level-select">
-      <button class="level-btn" data-level="0">Level 1 — Sektor Nereon</button>
-      <button class="level-btn" data-level="1">Level 2 — Sektor Vortex</button>
+    <div id="level-select"></div>
+    <p id="skill-line" class="hidden"></p>
+    <button id="lexicon-btn" class="level-btn secondary">📖 Lexikon</button>
+  </div>
+
+  <!-- Lexikon-Overlay -->
+  <div id="lexicon-screen" class="screen hidden">
+    <div id="lexicon-panel">
+      <div id="lexicon-header">
+        <h1 class="game-title small">LEXIKON</h1>
+        <button id="lexicon-close" class="level-btn secondary">Schließen</button>
+      </div>
+      <div id="lex-content"></div>
     </div>
   </div>
+
+  <!-- Drag-&-Drop-Geist -->
+  <div id="drag-ghost" class="hidden"></div>
 
   <!-- Game-Over-Screen -->
   <div id="gameover-screen" class="screen hidden">
@@ -69,6 +82,7 @@
   <div id="win-screen" class="screen hidden">
     <h1 class="game-title victory">SEKTOR GESICHERT!</h1>
     <p class="story-text">Alle Wellen abgewehrt. Die Helios-Warte leuchtet weiter über Nereon.</p>
+    <div id="win-unlocks"></div>
     <div class="btn-row">
       <button id="win-restart-btn" class="level-btn">Nochmal spielen</button>
       <button class="level-btn to-level-select">Zur Levelauswahl</button>

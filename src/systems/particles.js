@@ -145,6 +145,27 @@ export class ParticleSystem {
     });
   }
 
+  // Sieges-Feuerwerk: bunter Sternenregen + Schockring + Blitz
+  firework(pos) {
+    const palettes = [
+      [0xffd23f, 0xfff3b0, 0xff8a5c],
+      [0x40e0ff, 0x7df3ff, 0xffffff],
+      [0xff4dd2, 0xffb1ec, 0xc26bd6],
+      [0xaefc4b, 0x3ecf6a, 0xd3ff9a],
+    ];
+    const colors = palettes[Math.floor(Math.random() * palettes.length)];
+    this.burst(pos, {
+      count: 22, tex: starTex(), additive: true,
+      colors, speed: 8, life: 0.9, size: 0.65, up: 1.4,
+    });
+    this.burst(pos, {
+      count: 8, tex: circleTex(), additive: true,
+      colors: [colors[0], 0xffffff], speed: 4, life: 0.6, size: 0.5, up: 1.2,
+    });
+    this.shockwave(pos, colors[0], 5);
+    this.flash(pos, 0xffffff);
+  }
+
   // kurzer heller Blitz
   flash(pos, color) {
     const sprite = this.spawnSprite(circleTex(), color, true, pos);

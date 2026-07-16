@@ -1,9 +1,10 @@
-// Gegner-Roster — reine Datenobjekte.
+// Gegner-Roster — reine Datenobjekte (Beschreibungen speisen das Lexikon).
 
 export const ENEMY_TYPES = {
   kleinasteroid: {
     id: 'kleinasteroid',
     name: 'Kleinasteroid',
+    description: 'Treibender Gesteinsbrocken. Schnell, aber zerbrechlich — das Grundrauschen jeder Invasion.',
     hp: 60,
     speed: 2.0,
     meleeDps: 20,
@@ -14,6 +15,7 @@ export const ENEMY_TYPES = {
   schrottbrocken: {
     id: 'schrottbrocken',
     name: 'Schrottbrocken',
+    description: 'Zusammengepresster Stationsmüll. Langsam, aber zäh — hält deutlich mehr aus als Gestein.',
     hp: 160,
     speed: 1.3,
     meleeDps: 25,
@@ -21,9 +23,22 @@ export const ENEMY_TYPES = {
     kind: 'rock',
     scale: 1.15,
   },
+  berstbrocken: {
+    id: 'berstbrocken',
+    name: 'Berstbrocken',
+    description: 'Instabiler Brocken mit glühenden Rissen. Zerbirst bei Zerstörung in zwei Kleinasteroiden!',
+    hp: 170,
+    speed: 1.4,
+    meleeDps: 25,
+    integrityDamage: 1,
+    kind: 'rock',
+    scale: 1.1,
+    splitInto: { type: 'kleinasteroid', count: 2 },
+  },
   alienDrohne: {
     id: 'alienDrohne',
     name: 'Alien-Drohne',
+    description: 'Wendiger Aufklärer, fliegt in Wellenlinien. Schnell, mittlere Panzerung.',
     hp: 95,
     speed: 2.6,
     meleeDps: 18,
@@ -32,9 +47,47 @@ export const ENEMY_TYPES = {
     scale: 1.0,
     waveMotion: { amplitude: 1.1, frequency: 2.2 }, // wellenförmiger Flug
   },
+  schwarmling: {
+    id: 'schwarmling',
+    name: 'Schwarmling',
+    description: 'Winziger Beißer, kommt nie allein. Einzeln harmlos — im Schwarm eine Flut.',
+    hp: 28,
+    speed: 3.4,
+    meleeDps: 10,
+    integrityDamage: 1,
+    kind: 'alien',
+    scale: 0.8,
+    waveMotion: { amplitude: 0.7, frequency: 3.4 },
+    hpBarHeight: 2.5,
+  },
+  phasenspringer: {
+    id: 'phasenspringer',
+    name: 'Phasenspringer',
+    description: 'Energiewesen, das alle paar Sekunden ein Stück nach vorn teleportiert und Verteidigungslinien überspringt.',
+    hp: 110,
+    speed: 1.6,
+    meleeDps: 20,
+    integrityDamage: 1,
+    kind: 'alien',
+    scale: 1.0,
+    teleport: { interval: 5, distance: 4 },
+  },
+  panzerwalze: {
+    id: 'panzerwalze',
+    name: 'Panzerwalze',
+    description: 'Rollende Alien-Festung. Extrem zäh und laserresistent (nur halber Laserschaden) — Plasma und Raketen wirken voll.',
+    hp: 520,
+    speed: 0.7,
+    meleeDps: 35,
+    integrityDamage: 2,
+    kind: 'alien',
+    scale: 1.2,
+    resist: { laser: 0.5 },
+  },
   alienZerstoerer: {
     id: 'alienZerstoerer',
     name: 'Alien-Zerstörer',
+    description: 'Kampfschiff mit Bugkanone — beschießt deine Gebäude aus der Distanz, statt nur vorzurücken.',
     hp: 280,
     speed: 1.0,
     meleeDps: 30,
@@ -46,6 +99,7 @@ export const ENEMY_TYPES = {
   mutterschiffFragment: {
     id: 'mutterschiffFragment',
     name: 'Mutterschiff-Fragment',
+    description: 'Der Boss: gewaltige Hülle, walzt alles nieder und ruft laufend Drohnen-Verstärkung. Kostet 5 Integrität beim Durchbruch!',
     hp: 2200,
     speed: 0.45,
     meleeDps: 70,

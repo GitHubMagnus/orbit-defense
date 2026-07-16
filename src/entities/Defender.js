@@ -1,7 +1,8 @@
 // Platzierte Verteidiger-Einheit. Verhalten wird über data.behavior gesteuert
-// (shooter | generator | blocker | slower | pulse | healer) — neue Verhalten
-// kommen als Datenfeld dazu. Jede Einheit ist auf Stufe 1-3 ausbaubar und
-// zeigt Beschädigung in zwei sichtbaren Stufen.
+// (shooter | generator | blocker | slower | pulse | healer). Jede Einheit ist
+// zweimal ausbaubar; pro Ausbau wählt der Spieler Pfad A (Kraft: Schaden/Hülle/
+// Heilung) oder Pfad B (Tempo: Feuerrate/Produktion/Reichweite). Beschädigung
+// ist in zwei sichtbaren Stufen ablesbar, Ausbauten verändern das Modell.
 
 import * as THREE from 'three';
 import { buildDefenderMesh } from './meshFactory.js';
@@ -13,7 +14,8 @@ export class Defender {
     this.data = data;
     this.lane = lane;
     this.col = col;
-    this.level = 1;
+    this.upA = 0; // Kraft-Pfad (Schaden/Hülle/Heilrate/Sog)
+    this.upB = 0; // Tempo-Pfad (Feuerrate/Produktion/Reichweite/Regeneration)
     this.invested = data.cost;
     this.hp = data.hp;
     this.maxHp = data.hp;
@@ -37,30 +39,54 @@ export class Defender {
     return this.group.position;
   }
 
-  // ---------- effektive Stats je Ausbaustufe ----------
+  get level() {
+    return 1 + this.upA + this.upB;
+  }
+
+  // ---------- effektive Stats je Ausbau-Pfad ----------
 
   get damage() {
-    return (this.data.damage ?? 0) * 1.5 ** (this.level - 1);
+    return (this.data.damage ?? 0) * 1.5 ** this.upA;
   }
 
   get fireInterval() {
-    return (this.data.fireInterval ?? 1) * 0.85 ** (this.level - 1);
+    return (this.data.fireInterval ?? 1) * 0.75 ** this.upB;
   }
 
   get pulseInterval() {
-    return (this.data.pulseInterval ?? 1) * 0.85 ** (this.level - 1);
+    return (this.data.pulseInterval ?? 1) * 0.75 ** this.upB;
   }
 
   get generateInterval() {
-    return (this.data.generateInterval ?? 1) * 0.8 ** (this.level - 1);
+    return (this.data.generateInterval ?? 1) * 0.75 ** this.upB;
   }
 
   get slowFactor() {
-    return Math.min(0.75, (this.data.slowFactor ?? 0) + 0.1 * (this.level - 1));
+    return Math.min(0.8, (this.data.slowFactor ?? 0) + 0.12 * this.upA);
   }
 
   get healPerSec() {
-    return (this.data.healPerSec ?? 0) * 1.5 ** (this.level - 1);
+    return (this.data.healPerSec ?? 0) * 1.5 ** this.upA;
+  }
+
+  get range() {
+    const b = this.data.behavior;
+    const mul = (b === 'slower' || b === 'healer') ? 1 + 0.25 * this.upB : 1;
+    return (this.data.range ?? 0) * mul;
+  }
+
+  // Blocker-Pfad B: Selbstreparatur pro Sekunde
+  get selfRepair() {
+    return this.data.behavior === 'blocker' ? this.upB * 5 : 0;
+  }
+
+  computeMaxHp() {
+    let mul = 1 + 0.25 * (this.upA + this.upB);
+    // Hüllen-/Panzerungs-Pfad gibt kräftig extra
+    if (this.data.behavior === 'generator' || this.data.behavior === 'blocker') {
+      mul += 0.55 * this.upA;
+    }
+    return Math.round(this.data.hp * mul);
   }
 
   // ---------- Ausbau & Verkauf ----------
@@ -77,12 +103,11 @@ export class Defender {
     return Math.floor(this.invested * SELL_REFUND);
   }
 
-  upgrade() {
+  upgrade(pathKey) {
     if (!this.canUpgrade) return false;
-    this.level++;
+    if (pathKey === 'b') this.upB++; else this.upA++;
     this.invested += this.upgradeCost;
-    // mehr Hülle pro Stufe, Differenz sofort gutschreiben
-    const newMax = Math.round(this.data.hp * (1 + 0.5 * (this.level - 1)));
+    const newMax = this.computeMaxHp();
     this.hp += newMax - this.maxHp;
     this.maxHp = newMax;
     this.setLevelFn(this.level);
@@ -151,7 +176,7 @@ export class Defender {
       }
     } else if (d.behavior === 'slower') {
       for (const e of ctx.enemies) {
-        if (e.position.distanceTo(this.position) <= d.range) {
+        if (e.position.distanceTo(this.position) <= this.range) {
           e.slowFactor = Math.max(e.slowFactor, this.slowFactor);
         }
       }
@@ -163,7 +188,7 @@ export class Defender {
         );
         if (targets.length > 0) {
           this.pulseTimer = this.pulseInterval;
-          for (const e of targets) e.takeDamage(this.damage);
+          for (const e of targets) e.takeDamage(this.damage, 'pulse');
           const c = this.position.clone().add(new THREE.Vector3(0, 0.6, 0));
           ctx.particles.shockwave(c, 0x7df3ff, d.range * 1.6);
           ctx.particles.flash(this.position.clone().add(new THREE.Vector3(0, 2.6, 0)), 0x7df3ff);
@@ -173,7 +198,7 @@ export class Defender {
       let healedAny = null;
       for (const other of ctx.defenders) {
         if (other === this || other.dead) continue;
-        if (other.position.distanceTo(this.position) > d.range) continue;
+        if (other.position.distanceTo(this.position) > this.range) continue;
         if (other.heal(this.healPerSec * dt) > 0) healedAny = other;
       }
       // grüne Funken auf dem reparierten Gebäude
@@ -186,8 +211,10 @@ export class Defender {
           );
         }
       }
+    } else if (d.behavior === 'blocker') {
+      // Ausbau-Pfad B: Schild repariert sich selbst
+      if (this.selfRepair > 0) this.heal(this.selfRepair * dt);
     }
-    // blocker: rein passiv
   }
 
   // Vorderster Gegner in derselben Lane innerhalb der Reichweite
