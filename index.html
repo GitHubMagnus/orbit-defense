@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Orbitwache</title>
+  <link rel="stylesheet" href="style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="game-container"></div>
+
+  <!-- HUD-Overlay -->
+  <div id="hud" class="hidden">
+    <div id="top-bar">
+      <div id="energy-display" class="hud-panel">
+        <svg viewBox="0 0 24 24" class="hud-icon"><polygon points="14,1 5,13 10.5,13 8,23 19,9.5 12.5,9.5 16,1" fill="#ffd23f" stroke="#7a4d00" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        <span id="energy-value">0</span>
+      </div>
+      <div id="wave-display" class="hud-panel">
+        <span id="wave-label">Welle 0 / 10</span>
+      </div>
+      <div id="integrity-display" class="hud-panel">
+        <span class="integrity-title">Stations-Integrität</span>
+        <div id="integrity-segments"></div>
+      </div>
+    </div>
+    <div id="wave-banner" class="hidden"></div>
+    <div id="bottom-bar"></div>
+    <div id="tooltip" class="hidden"></div>
+    <div id="build-menu" class="hidden"></div>
+  </div>
+
+  <!-- Start-Screen -->
+  <div id="start-screen" class="screen">
+    <h1 class="game-title">ORBITWACHE</h1>
+    <p class="story-text">
+      Die Orbitalstation <em>Helios-Warte</em> kreist als letzter Außenposten über dem Planeten Nereon.
+      Durch die offenen Andockkorridore treiben Asteroiden, herrenloser Schrott und feindliche
+      Alien-Drohnen direkt auf den Reaktorkern zu. Du kommandierst die Verteidigungssysteme.
+      Sammle Energie-Blitze und Power-ups, platziere Türme in den Korridoren, rüste sie aus
+      und halte die Station, bis der Sektor gesichert ist.
+    </p>
+    <div id="level-select">
+      <button class="level-btn" data-level="0">Level 1 — Sektor Nereon</button>
+      <button class="level-btn" data-level="1">Level 2 — Sektor Vortex</button>
+    </div>
+  </div>
+
+  <!-- Game-Over-Screen -->
+  <div id="gameover-screen" class="screen hidden">
+    <h1 class="game-title danger">DIE STATION WURDE ÜBERRANNT</h1>
+    <p class="story-text">Der Reaktorkern ist gefallen. Die Helios-Warte treibt dunkel im Orbit.</p>
+    <p id="gameover-stats" class="story-text"></p>
+    <div class="btn-row">
+      <button id="retry-btn" class="level-btn">Erneut versuchen</button>
+      <button class="level-btn to-level-select">Zur Levelauswahl</button>
+    </div>
+  </div>
+
+  <!-- Sieg-Screen -->
+  <div id="win-screen" class="screen hidden">
+    <h1 class="game-title victory">SEKTOR GESICHERT!</h1>
+    <p class="story-text">Alle Wellen abgewehrt. Die Helios-Warte leuchtet weiter über Nereon.</p>
+    <div class="btn-row">
+      <button id="win-restart-btn" class="level-btn">Nochmal spielen</button>
+      <button class="level-btn to-level-select">Zur Levelauswahl</button>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
