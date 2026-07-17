@@ -14,7 +14,8 @@ import { DEFENDER_TYPES, DEFENDER_ORDER } from './data/defenders.js';
 import { ENEMY_TYPES } from './data/enemies.js';
 import { LEVELS } from './data/levels.js';
 import {
-  loadProgress, unlockAfterWin, starsForIntegrity, recordStars, recordEndlessBest,
+  loadProgress, saveProgress, unlockAfterWin, starsForIntegrity, recordStars, recordEndlessBest,
+  SKILLS,
 } from './systems/progress.js';
 import { Sound } from './systems/sound.js';
 import { ENDLESS_LEVEL } from './data/endless.js';
@@ -380,6 +381,13 @@ export class Game {
         this.hud.hideBuildMenu();
         return;
       }
+      // Cheat-Codes: einfach blind eintippen (überall, auch im Start-Screen)
+      if (ev.key.length === 1 && /[a-z]/i.test(ev.key)) {
+        this.cheatBuffer = ((this.cheatBuffer ?? '') + ev.key.toLowerCase()).slice(-24);
+        if (this.checkCheats()) return;
+        // Hotkeys stummschalten, solange die Eingabe wie ein angefangener Cheat aussieht
+        if (this.cheatPending()) return;
+      }
       if (this.phase !== 'playing') return;
       // Hotkeys: 1-8 Gebäude, R Recycler, Q Orbitalschlag, Leertaste Welle, P Pause, F Tempo
       const k = ev.key.toLowerCase();
@@ -428,6 +436,51 @@ export class Game {
       this.hud.select(null);
       this.highlight.visible = false;
     });
+  }
+
+  // ---------- Cheat-Codes (zum Ausprobieren ohne Grind) ----------
+
+  static CHEATS = ['unlockall', 'unlimitedpower'];
+
+  // sieht der Puffer wie ein angefangener Cheat aus? (mind. 2 passende Zeichen)
+  cheatPending() {
+    const buf = this.cheatBuffer ?? '';
+    for (const code of Game.CHEATS) {
+      const max = Math.min(buf.length, code.length - 1);
+      for (let len = max; len >= 2; len--) {
+        if (code.startsWith(buf.slice(-len))) return true;
+      }
+    }
+    return false;
+  }
+
+  checkCheats() {
+    const buf = this.cheatBuffer ?? '';
+    if (buf.endsWith('unlockall')) {
+      this.cheatBuffer = '';
+      // alle Level, Gebäude und Skills sofort freischalten
+      this.progress.levelsUnlocked = LEVELS.length;
+      this.progress.towers = [...DEFENDER_ORDER];
+      this.progress.skills = Object.keys(SKILLS);
+      saveProgress(this.progress);
+      this.hud.refreshMeta(this.progress, LEVELS);
+      if (this.phase === 'playing') {
+        this.hud.showBanner('CHEAT AKTIVIERT', 'Alle Level, Gebäude und Skills freigeschaltet!');
+      }
+      this.sound.powerup();
+      return true;
+    }
+    if (buf.endsWith('unlimitedpower')) {
+      this.cheatBuffer = '';
+      if (this.phase === 'playing') {
+        this.energy += 10000;
+        this.hud.setEnergy(this.energy, true);
+        this.hud.showBanner('CHEAT AKTIVIERT', '+10.000 Energie!');
+        this.sound.powerup();
+      }
+      return true;
+    }
+    return false;
   }
 
   // von der HUD-Karte aus gestartet (pointerdown auf einer Einheiten-Karte)
