@@ -92,52 +92,147 @@ export function createWorld(container) {
         ctx.fillStyle = `rgba(255,255,255,${0.25 + Math.random() * 0.55})`;
         ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
       }
-      // Cartoon-Planet mit Ring (oben links)
-      const cx = 170, cy = 96, r = 78;
-      ctx.save();
-      ctx.translate(cx, cy); ctx.rotate(-0.26);
-      ctx.strokeStyle = th.ringA; ctx.lineWidth = 13;
-      ctx.beginPath(); ctx.ellipse(0, 0, 118, 34, 0, Math.PI * 0.97, Math.PI * 2.03); ctx.stroke();
-      ctx.strokeStyle = th.ringB; ctx.lineWidth = 5;
-      ctx.beginPath(); ctx.ellipse(0, 0, 118, 34, 0, Math.PI * 0.97, Math.PI * 2.03); ctx.stroke();
-      ctx.restore();
-      const pg = ctx.createRadialGradient(cx - 26, cy - 30, 8, cx, cy, r + 6);
-      pg.addColorStop(0, th.planet[0]);
-      pg.addColorStop(0.45, th.planet[1]);
-      pg.addColorStop(0.8, th.planet[2]);
-      pg.addColorStop(1, th.planet[3]);
-      ctx.fillStyle = pg;
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#1b2447'; ctx.lineWidth = 5; ctx.stroke();
-      ctx.save();
-      ctx.beginPath(); ctx.arc(cx, cy, r - 3, 0, Math.PI * 2); ctx.clip();
-      ctx.fillStyle = 'rgba(255,255,255,0.16)';
-      ctx.beginPath(); ctx.ellipse(cx, cy - 30, r + 20, 16, -0.12, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(20,30,70,0.25)';
-      ctx.beginPath(); ctx.ellipse(cx, cy + 20, r + 20, 14, -0.1, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.20)';
-      for (const [fx, fy, fr] of [[140, 70, 12], [205, 60, 8], [185, 130, 10]]) {
-        ctx.beginPath(); ctx.arc(fx, fy, fr, 0, Math.PI * 2); ctx.fill();
+      // jeder Sektor hat sein eigenes Himmelsobjekt:
+      // Nereon = Ringplanet + Mond, Vortex = Wurmloch, Abyss = Schwarzes Loch
+      if (themeIndex === 1) {
+        drawWormhole(ctx);
+      } else if (themeIndex === 2) {
+        drawBlackHole(ctx);
+      } else {
+        drawRingPlanet(ctx, th);
       }
-      ctx.restore();
-      ctx.save();
-      ctx.translate(cx, cy); ctx.rotate(-0.26);
-      ctx.strokeStyle = th.ringA; ctx.lineWidth = 13;
-      ctx.beginPath(); ctx.ellipse(0, 0, 118, 34, 0, -Math.PI * 0.03, Math.PI * 0.97); ctx.stroke();
-      ctx.restore();
-      ctx.fillStyle = 'rgba(255,255,255,0.4)';
-      ctx.beginPath(); ctx.ellipse(cx - 34, cy - 40, 20, 9, -0.6, 0, Math.PI * 2); ctx.fill();
-      // kleiner Mond daneben
-      const mg = ctx.createRadialGradient(320, 180, 3, 328, 186, 22);
-      mg.addColorStop(0, '#f4f0ff');
-      mg.addColorStop(1, '#9a93c9');
-      ctx.fillStyle = mg;
-      ctx.beginPath(); ctx.arc(328, 186, 20, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = '#1b2447'; ctx.lineWidth = 4; ctx.stroke();
-      ctx.fillStyle = 'rgba(90,80,140,0.5)';
-      ctx.beginPath(); ctx.arc(322, 190, 4, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(334, 180, 3, 0, Math.PI * 2); ctx.fill();
     });
+  }
+
+  function drawRingPlanet(ctx, th) {
+    const cx = 170, cy = 96, r = 78;
+    ctx.save();
+    ctx.translate(cx, cy); ctx.rotate(-0.26);
+    ctx.strokeStyle = th.ringA; ctx.lineWidth = 13;
+    ctx.beginPath(); ctx.ellipse(0, 0, 118, 34, 0, Math.PI * 0.97, Math.PI * 2.03); ctx.stroke();
+    ctx.strokeStyle = th.ringB; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.ellipse(0, 0, 118, 34, 0, Math.PI * 0.97, Math.PI * 2.03); ctx.stroke();
+    ctx.restore();
+    const pg = ctx.createRadialGradient(cx - 26, cy - 30, 8, cx, cy, r + 6);
+    pg.addColorStop(0, th.planet[0]);
+    pg.addColorStop(0.45, th.planet[1]);
+    pg.addColorStop(0.8, th.planet[2]);
+    pg.addColorStop(1, th.planet[3]);
+    ctx.fillStyle = pg;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#1b2447'; ctx.lineWidth = 5; ctx.stroke();
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, r - 3, 0, Math.PI * 2); ctx.clip();
+    ctx.fillStyle = 'rgba(255,255,255,0.16)';
+    ctx.beginPath(); ctx.ellipse(cx, cy - 30, r + 20, 16, -0.12, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(20,30,70,0.25)';
+    ctx.beginPath(); ctx.ellipse(cx, cy + 20, r + 20, 14, -0.1, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.20)';
+    for (const [fx, fy, fr] of [[140, 70, 12], [205, 60, 8], [185, 130, 10]]) {
+      ctx.beginPath(); ctx.arc(fx, fy, fr, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+    ctx.save();
+    ctx.translate(cx, cy); ctx.rotate(-0.26);
+    ctx.strokeStyle = th.ringA; ctx.lineWidth = 13;
+    ctx.beginPath(); ctx.ellipse(0, 0, 118, 34, 0, -Math.PI * 0.03, Math.PI * 0.97); ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.beginPath(); ctx.ellipse(cx - 34, cy - 40, 20, 9, -0.6, 0, Math.PI * 2); ctx.fill();
+    // kleiner Mond daneben
+    const mg = ctx.createRadialGradient(320, 180, 3, 328, 186, 22);
+    mg.addColorStop(0, '#f4f0ff');
+    mg.addColorStop(1, '#9a93c9');
+    ctx.fillStyle = mg;
+    ctx.beginPath(); ctx.arc(328, 186, 20, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#1b2447'; ctx.lineWidth = 4; ctx.stroke();
+    ctx.fillStyle = 'rgba(90,80,140,0.5)';
+    ctx.beginPath(); ctx.arc(322, 190, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(334, 180, 3, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Sektor Vortex: leuchtendes Wurmloch mit Spiralarmen
+  function drawWormhole(ctx) {
+    const cx = 185, cy = 110;
+    // äußerer Sog-Schein
+    const halo = ctx.createRadialGradient(cx, cy, 15, cx, cy, 130);
+    halo.addColorStop(0, 'rgba(255,150,240,0.55)');
+    halo.addColorStop(0.5, 'rgba(190,90,255,0.28)');
+    halo.addColorStop(1, 'rgba(120,50,220,0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(cx, cy, 130, 0, Math.PI * 2); ctx.fill();
+    // Spiralarme
+    for (let arm = 0; arm < 3; arm++) {
+      const colors = ['rgba(255,140,235,0.9)', 'rgba(140,200,255,0.8)', 'rgba(255,220,140,0.7)'];
+      ctx.strokeStyle = colors[arm];
+      ctx.lineWidth = 7 - arm;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (let t = 0; t <= 1; t += 0.04) {
+        const ang = arm * (Math.PI * 2 / 3) + t * 4.6;
+        const rr = 10 + t * 105;
+        const x = cx + Math.cos(ang) * rr;
+        const y = cy + Math.sin(ang) * rr * 0.72;
+        t === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    // gleißendes Zentrum
+    const core = ctx.createRadialGradient(cx, cy, 2, cx, cy, 26);
+    core.addColorStop(0, '#ffffff');
+    core.addColorStop(0.55, '#ffb8f2');
+    core.addColorStop(1, 'rgba(255,120,230,0)');
+    ctx.fillStyle = core;
+    ctx.beginPath(); ctx.arc(cx, cy, 26, 0, Math.PI * 2); ctx.fill();
+    // hineinstürzende Materie-Punkte
+    ctx.fillStyle = 'rgba(255,220,250,0.9)';
+    for (const [px, py, pr] of [[300, 60, 3], [80, 170, 2.5], [280, 170, 2], [90, 50, 2.5]]) {
+      ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // Sektor Abyss: Schwarzes Loch mit glühender Akkretionsscheibe
+  function drawBlackHole(ctx) {
+    const cx = 185, cy = 105;
+    // Scheibe hinter dem Loch
+    ctx.save();
+    ctx.translate(cx, cy); ctx.rotate(-0.18);
+    const diskGrad = ctx.createLinearGradient(-120, 0, 120, 0);
+    diskGrad.addColorStop(0, 'rgba(255,90,50,0.15)');
+    diskGrad.addColorStop(0.5, 'rgba(255,170,80,0.95)');
+    diskGrad.addColorStop(1, 'rgba(255,90,50,0.15)');
+    ctx.strokeStyle = diskGrad;
+    ctx.lineWidth = 16;
+    ctx.beginPath(); ctx.ellipse(0, 0, 108, 30, 0, Math.PI * 0.97, Math.PI * 2.03); ctx.stroke();
+    ctx.restore();
+    // Photonenring + Ereignishorizont
+    const glow = ctx.createRadialGradient(cx, cy, 30, cx, cy, 60);
+    glow.addColorStop(0, 'rgba(255,180,90,0.9)');
+    glow.addColorStop(0.5, 'rgba(255,90,40,0.4)');
+    glow.addColorStop(1, 'rgba(255,60,30,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(cx, cy, 60, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#020208';
+    ctx.beginPath(); ctx.arc(cx, cy, 38, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#ffcf9a';
+    ctx.lineWidth = 3.5;
+    ctx.stroke();
+    // gravitativ verbogener Lichtbogen oben
+    ctx.strokeStyle = 'rgba(255,190,110,0.75)';
+    ctx.lineWidth = 6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(cx, cy, 52, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
+    // Scheibe vor dem Loch
+    ctx.save();
+    ctx.translate(cx, cy); ctx.rotate(-0.18);
+    ctx.strokeStyle = diskGrad;
+    ctx.lineWidth = 16;
+    ctx.beginPath(); ctx.ellipse(0, 0, 108, 30, 0, -Math.PI * 0.03, Math.PI * 0.97); ctx.stroke();
+    ctx.restore();
+    // glühende Funken, die hineingezogen werden
+    ctx.fillStyle = 'rgba(255,160,80,0.9)';
+    for (const [px, py, pr] of [[305, 80, 2.5], [70, 140, 2], [290, 150, 2], [95, 55, 2.5]]) {
+      ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.fill();
+    }
   }
 
   scene.background = skyTexture(0);

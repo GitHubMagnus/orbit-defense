@@ -153,6 +153,31 @@ export class ParticleSystem {
     });
   }
 
+  // Orbitalschlag-Aufladung: dünner roter Zielstrahl vom Himmel
+  preBeam(pos, duration = 1.2) {
+    const sprite = this.spawnSprite(circleTex(), 0xff4050, true, pos.clone().add(new THREE.Vector3(0, 5.5, 0)));
+    sprite.scale.set(0.35, 12, 1);
+    sprite.material.opacity = 0.5;
+    this.particles.push({
+      sprite, vel: new THREE.Vector3(),
+      life: duration, maxLife: duration, stretch: true, baseSize: 1,
+    });
+  }
+
+  // rote Energie-Funken, die zur Aufladung ins Ziel stürzen
+  chargeSpark(pos) {
+    for (let i = 0; i < 3; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const off = new THREE.Vector3(Math.cos(a) * 2.4, Math.random() * 2.2, Math.sin(a) * 2.4);
+      const sprite = this.spawnSprite(starTex(), i % 2 ? 0xff4050 : 0xffb0a0, true, pos.clone().add(off));
+      sprite.scale.setScalar(0.45);
+      this.particles.push({
+        sprite, vel: off.clone().multiplyScalar(-5),
+        life: 0.4, maxLife: 0.4, spin: 7, baseSize: 0.45,
+      });
+    }
+  }
+
   // Orbitalschlag: senkrechter Lichtstrahl + Einschlag
   beam(pos, color = 0xbff3ff) {
     const sprite = this.spawnSprite(circleTex(), color, true, pos.clone().add(new THREE.Vector3(0, 5.5, 0)));

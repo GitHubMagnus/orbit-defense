@@ -230,8 +230,11 @@ export class Game {
     this.orbitalCooldown = 45;
     this.hud.setEnergy(this.energy);
     const pos = new THREE.Vector3(colX(cell.col), 0, laneZ(cell.lane));
-    this.pendingStrikes.push({ pos, t: 0.8 });
-    this.particles.shockwave(pos.clone().add(new THREE.Vector3(0, 0.5, 0)), 0xffffff, 3);
+    // roter Laser: erst 1,2 s aufladen (Zielstrahl + einstürzende Funken), dann Abschuss
+    this.pendingStrikes.push({ pos, t: 1.2, chargeTick: 0 });
+    this.particles.preBeam(pos, 1.2);
+    this.particles.shockwave(pos.clone().add(new THREE.Vector3(0, 0.5, 0)), 0xff4050, 3);
+    this.sound.charge();
     this.hud.select(null);
   }
 
@@ -737,14 +740,20 @@ export class Game {
       spawnMinion: (type, lane, x) => this.spawnMinion(type, lane, x),
     };
 
-    // Orbitalschlag: Cooldown + verzögerte Einschläge
+    // Orbitalschlag: Cooldown + Aufladung + verzögerte Einschläge
     this.orbitalCooldown = Math.max(0, this.orbitalCooldown - dt);
     for (let i = this.pendingStrikes.length - 1; i >= 0; i--) {
       const s = this.pendingStrikes[i];
       s.t -= dt;
+      // während der Aufladung stürzen rote Funken ins Ziel
+      s.chargeTick -= dt;
+      if (s.t > 0 && s.chargeTick <= 0) {
+        s.chargeTick = 0.16;
+        this.particles.chargeSpark(s.pos.clone().add(new THREE.Vector3(0, 0.8, 0)));
+      }
       if (s.t <= 0) {
         this.pendingStrikes.splice(i, 1);
-        this.particles.beam(s.pos.clone().add(new THREE.Vector3(0, 0.3, 0)));
+        this.particles.beam(s.pos.clone().add(new THREE.Vector3(0, 0.3, 0)), 0xff4050);
         this.sound.orbital();
         this.shakeT = Math.max(this.shakeT, 0.35);
         for (const e of this.enemies) {

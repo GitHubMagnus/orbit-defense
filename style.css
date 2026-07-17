@@ -233,17 +233,17 @@ html, body {
   width: 62px; height: 62px;
   pointer-events: auto;
   border-radius: 50%;
-  border: 2px solid rgba(255, 210, 63, 0.35);
+  border: 2px solid rgba(255, 64, 80, 0.35);
   background:
-    conic-gradient(rgba(255, 210, 63, 0.28) var(--cd, 100%), rgba(20, 30, 55, 0.5) 0),
+    conic-gradient(rgba(255, 64, 80, 0.3) var(--cd, 100%), rgba(20, 30, 55, 0.5) 0),
     var(--panel-bg);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; opacity: 0.65;
   transition: box-shadow 0.2s ease, opacity 0.2s ease;
 }
 #orbital-btn svg { width: 34px; height: 34px; }
-#orbital-btn.ready { opacity: 1; border-color: #ffd23f; box-shadow: 0 0 16px rgba(255, 210, 63, 0.45); }
-#orbital-btn.armed { border-color: #fff; box-shadow: 0 0 24px rgba(255, 240, 160, 0.8); }
+#orbital-btn.ready { opacity: 1; border-color: #ff4050; box-shadow: 0 0 16px rgba(255, 64, 80, 0.5); }
+#orbital-btn.armed { border-color: #fff; box-shadow: 0 0 26px rgba(255, 120, 120, 0.85); }
 
 /* ---------- Pause & Treffer-Vignette ---------- */
 #pause-overlay {

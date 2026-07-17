@@ -392,60 +392,70 @@ export function buildDefenderMesh(typeId) {
   }
 }
 
-// --- Laserturm: Cyan-Geschütz mit Scanner-Visier und Kanone nach rechts ---
+// --- Laserturm: kantige Railgun mit Doppelschiene und Energiezelle ---
 function buildLaserturm() {
   const g = new THREE.Group();
   const card = makeRig(g, 1.25, 3.0);
 
-  const body = spritePlane('def-laser2', 256, 256, 3.4, 3.4, (ctx) => {
-    // Standfuß
-    ctx.fillStyle = lgrad(ctx, 0, 190, 0, 246, [[0, '#3d5a80'], [1, '#27395c']]);
-    rr(ctx, 62, 192, 132, 52, 18); ctx.fill(); o(ctx); ctx.stroke();
-    ctx.fillStyle = 'rgba(120,220,255,0.5)';
-    rr(ctx, 82, 204, 92, 10, 5); ctx.fill();
-    // Säule
-    ctx.fillStyle = lgrad(ctx, 0, 120, 0, 200, [[0, '#8fd8ea'], [1, '#4a7fa8']]);
-    rr(ctx, 96, 130, 64, 72, 14); ctx.fill(); o(ctx); ctx.stroke();
-    // Kanone nach rechts
-    ctx.fillStyle = lgrad(ctx, 150, 0, 246, 0, [[0, '#5e93b8'], [1, '#38648f']]);
-    rr(ctx, 148, 86, 96, 40, 16); ctx.fill(); o(ctx); ctx.stroke();
-    ctx.fillStyle = '#bff3ff';
-    rr(ctx, 156, 92, 60, 10, 5); ctx.fill();
-    // Mündungsring
-    ctx.fillStyle = '#eaffff';
-    rr(ctx, 228, 80, 18, 52, 8); ctx.fill(); o(ctx); ctx.stroke();
-    // Kopf-Dom
-    ctx.fillStyle = rgrad(ctx, 110, 84, 8, 70, [[0, '#d9fbff'], [0.55, '#6fe0f7'], [1, '#2fa3c9']]);
-    ctx.beginPath(); ctx.arc(118, 96, 58, 0, Math.PI * 2); ctx.fill(); o(ctx); ctx.stroke();
-    // Scanner-Visier (Leuchtband statt Gesicht)
-    ctx.fillStyle = '#173056';
-    rr(ctx, 76, 80, 84, 34, 17); ctx.fill(); o(ctx, 7); ctx.stroke();
-    ctx.fillStyle = '#40e0ff';
-    rr(ctx, 86, 90, 64, 14, 7); ctx.fill();
-    ctx.fillStyle = '#eaffff';
-    rr(ctx, 122, 92, 16, 10, 5); ctx.fill();
-    // Antenne
-    ctx.beginPath(); ctx.moveTo(96, 46); ctx.lineTo(104, 64); o(ctx, 7); ctx.stroke();
-    ctx.fillStyle = '#ffd54f';
-    ctx.beginPath(); ctx.arc(94, 40, 9, 0, Math.PI * 2); ctx.fill(); o(ctx, 5); ctx.stroke();
-    // Kühlrippen an der Säule
-    ctx.strokeStyle = 'rgba(20,40,80,0.45)'; ctx.lineWidth = 4;
-    for (const ry of [148, 162, 176]) {
-      ctx.beginPath(); ctx.moveTo(102, ry); ctx.lineTo(154, ry); ctx.stroke();
+  const body = spritePlane('def-laser3', 256, 256, 3.4, 3.4, (ctx) => {
+    // breiter Stufen-Sockel
+    ctx.fillStyle = lgrad(ctx, 0, 205, 0, 246, [[0, '#3d5a80'], [1, '#27395c']]);
+    ctx.beginPath();
+    ctx.moveTo(56, 246); ctx.lineTo(72, 206); ctx.lineTo(184, 206); ctx.lineTo(200, 246);
+    ctx.closePath(); ctx.fill(); o(ctx); ctx.stroke();
+    ctx.fillStyle = 'rgba(64,224,255,0.6)';
+    rr(ctx, 84, 224, 88, 7, 3); ctx.fill();
+    // Drehgelenk
+    ctx.fillStyle = '#38466b';
+    rr(ctx, 104, 182, 48, 28, 10); ctx.fill(); o(ctx); ctx.stroke();
+    // Energiezelle hinten links
+    ctx.fillStyle = '#12203c';
+    rr(ctx, 46, 138, 30, 46, 9); ctx.fill(); o(ctx); ctx.stroke();
+    ctx.fillStyle = rgrad(ctx, 61, 160, 2, 22, [[0, '#eaffff'], [0.55, '#40e0ff'], [1, '#1d7fa8']]);
+    rr(ctx, 52, 146, 18, 30, 6); ctx.fill();
+    // Körper: kantiger Keil
+    ctx.fillStyle = lgrad(ctx, 0, 128, 0, 192, [[0, '#7fb0d4'], [1, '#3f6b96']]);
+    ctx.beginPath();
+    ctx.moveTo(72, 148); ctx.lineTo(150, 134); ctx.lineTo(190, 142);
+    ctx.lineTo(190, 176); ctx.lineTo(150, 188); ctx.lineTo(72, 184);
+    ctx.closePath(); ctx.fill(); o(ctx); ctx.stroke();
+    // Kühlrippen oben
+    for (let i = 0; i < 3; i++) {
+      const bx = 92 + i * 22;
+      ctx.fillStyle = '#2c3c5c';
+      ctx.beginPath();
+      ctx.moveTo(bx, 136); ctx.lineTo(bx + 12, 134); ctx.lineTo(bx + 8, 116); ctx.lineTo(bx - 4, 118);
+      ctx.closePath(); ctx.fill(); o(ctx, 5); ctx.stroke();
     }
-    // Glanzlicht
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.beginPath(); ctx.ellipse(94, 64, 16, 9, -0.6, 0, Math.PI * 2); ctx.fill();
+    // Akzent-Streifen
+    ctx.fillStyle = '#40e0ff';
+    rr(ctx, 88, 160, 48, 6, 3); ctx.fill();
+    // Railgun-Doppelschiene nach rechts
+    ctx.fillStyle = lgrad(ctx, 0, 136, 0, 147, [[0, '#6ea3c4'], [1, '#41729c']]);
+    rr(ctx, 182, 136, 62, 11, 5); ctx.fill(); o(ctx, 6); ctx.stroke();
+    ctx.fillStyle = lgrad(ctx, 0, 170, 0, 181, [[0, '#6ea3c4'], [1, '#41729c']]);
+    rr(ctx, 182, 170, 62, 11, 5); ctx.fill(); o(ctx, 6); ctx.stroke();
+    // Energiestrahl zwischen den Schienen
+    ctx.fillStyle = lgrad(ctx, 184, 0, 244, 0, [[0, 'rgba(64,224,255,0.25)'], [1, '#bff7ff']]);
+    rr(ctx, 186, 150, 56, 17, 6); ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    rr(ctx, 216, 155, 24, 7, 3); ctx.fill();
+    // Mündungs-Flare
+    ctx.fillStyle = '#eaffff';
+    rr(ctx, 240, 144, 9, 30, 4); ctx.fill(); o(ctx, 5); ctx.stroke();
+    // Glanzlinie
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(80, 152); ctx.lineTo(146, 140); ctx.stroke();
   });
   body.position.y = 1.7;
   card.add(body);
 
   const tip = glowDisc('cyan', 'rgba(64,224,255,0.9)', 1.1);
-  tip.position.set(1.55, 1.85, 0.06);
+  tip.position.set(1.58, 1.3, 0.06);
   card.add(tip);
 
   const extras = attachDefenderExtras(card, 3.1, 1.7);
-  g.userData.muzzleOffset = new THREE.Vector3(1.9, 2.3, 0);
+  g.userData.muzzleOffset = new THREE.Vector3(1.95, 1.65, 0);
   const phase = Math.random() * Math.PI * 2;
 
   return {
@@ -460,57 +470,72 @@ function buildLaserturm() {
   };
 }
 
-// --- Plasmakanone: pummelige Weiß-Magenta-Kanone mit Reaktor-Bullauge ---
+// --- Plasmakanone: schwere kantige Plasma-Artillerie mit Kondensator-Schlitzen ---
 function buildPlasmakanone() {
   const g = new THREE.Group();
   const card = makeRig(g, 1.25, 3.2);
 
-  const body = spritePlane('def-plasma2', 256, 256, 3.6, 3.6, (ctx) => {
-    // Fuß
-    ctx.fillStyle = lgrad(ctx, 0, 196, 0, 248, [[0, '#5a6b93'], [1, '#38466b']]);
-    rr(ctx, 58, 198, 140, 48, 18); ctx.fill(); o(ctx); ctx.stroke();
-    // Rumpf: große runde Kanone
-    ctx.fillStyle = rgrad(ctx, 100, 120, 20, 100, [[0, '#ffffff'], [0.5, '#f3e0fa'], [1, '#c58ad6']]);
-    ctx.beginPath(); ctx.arc(112, 140, 84, 0, Math.PI * 2); ctx.fill(); o(ctx); ctx.stroke();
-    // Magenta-Panel
-    ctx.fillStyle = 'rgba(233,84,205,0.7)';
-    ctx.beginPath(); ctx.arc(112, 140, 84, 0.55 * Math.PI, 0.98 * Math.PI); ctx.arc(112, 140, 48, 0.98 * Math.PI, 0.55 * Math.PI, true); ctx.closePath(); ctx.fill();
-    // Lauf nach rechts
-    ctx.fillStyle = lgrad(ctx, 160, 0, 250, 0, [[0, '#e6c7f2'], [1, '#a35ec2']]);
-    rr(ctx, 168, 100, 82, 62, 24); ctx.fill(); o(ctx); ctx.stroke();
-    ctx.fillStyle = '#2c1846';
-    ctx.beginPath(); ctx.ellipse(244, 131, 12, 24, 0, 0, Math.PI * 2); ctx.fill(); o(ctx, 6); ctx.stroke();
-    // Reaktor-Bullauge mit wirbelndem Plasma (statt Gesicht)
-    ctx.fillStyle = '#2c1846';
-    ctx.beginPath(); ctx.arc(106, 126, 34, 0, Math.PI * 2); ctx.fill(); o(ctx, 7); ctx.stroke();
-    ctx.fillStyle = rgrad(ctx, 100, 120, 3, 30, [[0, '#ffffff'], [0.4, '#ff9be4'], [1, '#b03a94']]);
-    ctx.beginPath(); ctx.arc(106, 126, 26, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 5; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.arc(106, 126, 15, 0.4, 1.8); ctx.stroke();
-    ctx.beginPath(); ctx.arc(106, 126, 19, 3.3, 4.6); ctx.stroke();
-    // Rahmen-Schrauben am Bullauge
-    ctx.fillStyle = '#8e5aa8';
-    for (const a of [0.6, 2.2, 3.8, 5.4]) {
-      ctx.beginPath(); ctx.arc(106 + Math.cos(a) * 33, 126 + Math.sin(a) * 33, 4.5, 0, Math.PI * 2); ctx.fill();
+  const body = spritePlane('def-plasma3', 256, 256, 3.6, 3.6, (ctx) => {
+    // breiter Fuß
+    ctx.fillStyle = lgrad(ctx, 0, 200, 0, 248, [[0, '#5a6b93'], [1, '#38466b']]);
+    ctx.beginPath();
+    ctx.moveTo(44, 246); ctx.lineTo(62, 202); ctx.lineTo(194, 202); ctx.lineTo(212, 246);
+    ctx.closePath(); ctx.fill(); o(ctx); ctx.stroke();
+    // Hydraulik-Streben
+    for (const [x1, y1, x2, y2] of [[84, 206, 100, 172], [172, 206, 156, 172]]) {
+      ctx.strokeStyle = OUTLINE; ctx.lineWidth = 13; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      ctx.strokeStyle = '#8e9ec2'; ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
     }
-    // Nieten am Rumpf
-    ctx.fillStyle = '#8e5aa8';
-    for (const [nx, ny] of [[62, 118], [74, 176], [140, 208]]) {
-      ctx.beginPath(); ctx.arc(nx, ny, 7, 0, Math.PI * 2); ctx.fill();
+    // Auspuff-Lamellen hinten links
+    for (let i = 0; i < 3; i++) {
+      ctx.fillStyle = '#5f3a78';
+      rr(ctx, 52, 112 + i * 20, 20, 10, 4); ctx.fill(); o(ctx, 4); ctx.stroke();
     }
-    // Glanz
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.beginPath(); ctx.ellipse(84, 82, 20, 11, -0.5, 0, Math.PI * 2); ctx.fill();
+    // Gehäuse: kantiges Achteck
+    ctx.fillStyle = lgrad(ctx, 0, 96, 0, 178, [[0, '#f6e6fb'], [0.55, '#dbaee9'], [1, '#a066bd']]);
+    ctx.beginPath();
+    ctx.moveTo(70, 130); ctx.lineTo(96, 100); ctx.lineTo(160, 96); ctx.lineTo(186, 118);
+    ctx.lineTo(186, 158); ctx.lineTo(160, 178); ctx.lineTo(96, 178); ctx.lineTo(70, 154);
+    ctx.closePath(); ctx.fill(); o(ctx); ctx.stroke();
+    // drei leuchtende Kondensator-Schlitze
+    for (let i = 0; i < 3; i++) {
+      const sx = 90 + i * 27;
+      ctx.fillStyle = '#ff4dd2';
+      ctx.beginPath();
+      ctx.moveTo(sx, 164); ctx.lineTo(sx + 9, 112); ctx.lineTo(sx + 18, 112); ctx.lineTo(sx + 9, 164);
+      ctx.closePath(); ctx.fill(); o(ctx, 4); ctx.stroke();
+      ctx.fillStyle = '#ffd9f3';
+      ctx.beginPath();
+      ctx.moveTo(sx + 5, 152); ctx.lineTo(sx + 11, 124); ctx.lineTo(sx + 14, 124); ctx.lineTo(sx + 8, 152);
+      ctx.closePath(); ctx.fill();
+    }
+    // dicker Lauf mit Segmentringen
+    ctx.fillStyle = lgrad(ctx, 0, 112, 0, 166, [[0, '#e6c7f2'], [1, '#a35ec2']]);
+    rr(ctx, 178, 112, 70, 54, 16); ctx.fill(); o(ctx); ctx.stroke();
+    for (const rx of [192, 214]) {
+      ctx.fillStyle = '#8e5aa8';
+      rr(ctx, rx, 106, 11, 66, 5); ctx.fill(); o(ctx, 5); ctx.stroke();
+    }
+    // Mündung mit glühender Ladung
+    ctx.fillStyle = '#2c1846';
+    ctx.beginPath(); ctx.ellipse(246, 139, 11, 28, 0, 0, Math.PI * 2); ctx.fill(); o(ctx, 6); ctx.stroke();
+    ctx.fillStyle = rgrad(ctx, 246, 139, 2, 19, [[0, '#ffffff'], [0.5, '#ff9be4'], [1, 'rgba(255,77,210,0)']]);
+    ctx.beginPath(); ctx.ellipse(246, 139, 8, 21, 0, 0, Math.PI * 2); ctx.fill();
+    // Glanzlinie
+    ctx.strokeStyle = 'rgba(255,255,255,0.65)'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(100, 104); ctx.lineTo(154, 100); ctx.stroke();
   });
   body.position.y = 1.8;
   card.add(body);
 
   const orb = glowDisc('magenta', 'rgba(255,77,210,0.95)', 1.5);
-  orb.position.set(1.75, 1.85, 0.08);
+  orb.position.set(1.66, 1.65, 0.08);
   card.add(orb);
 
   const extras = attachDefenderExtras(card, 3.3, 1.8);
-  g.userData.muzzleOffset = new THREE.Vector3(2.15, 2.3, 0);
+  g.userData.muzzleOffset = new THREE.Vector3(2.05, 2.0, 0);
   const phase = Math.random() * Math.PI * 2;
 
   return {
@@ -689,20 +714,25 @@ function buildTraktorstrahl() {
   const g = new THREE.Group();
   const card = makeRig(g, 1.2, 2.8);
 
-  const pod = spritePlane('def-traktor2', 256, 256, 2.9, 2.9, (ctx) => {
+  const pod = spritePlane('def-traktor3', 256, 256, 2.9, 2.9, (ctx) => {
     // Fuß
     ctx.fillStyle = lgrad(ctx, 0, 190, 0, 246, [[0, '#4c6b9c'], [1, '#31456e']]);
     rr(ctx, 70, 192, 116, 52, 18); ctx.fill(); o(ctx); ctx.stroke();
     // Rumpf
     ctx.fillStyle = lgrad(ctx, 0, 120, 0, 200, [[0, '#b7f0f7'], [1, '#5b93c9']]);
     rr(ctx, 88, 132, 80, 68, 20); ctx.fill(); o(ctx); ctx.stroke();
-    // Sensor-Linse (Technik statt Auge)
+    // Sensor-Leiste (kantig, ohne Augen-Optik)
     ctx.fillStyle = '#12203c';
-    ctx.beginPath(); ctx.arc(128, 162, 19, 0, Math.PI * 2); ctx.fill(); o(ctx, 6); ctx.stroke();
-    ctx.strokeStyle = '#40e0ff'; ctx.lineWidth = 5;
-    ctx.beginPath(); ctx.arc(128, 162, 11, 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,0.85)';
-    ctx.beginPath(); ctx.arc(122, 155, 3.5, 0, Math.PI * 2); ctx.fill();
+    rr(ctx, 98, 150, 60, 16, 8); ctx.fill(); o(ctx, 6); ctx.stroke();
+    ctx.fillStyle = '#40e0ff';
+    rr(ctx, 104, 155, 34, 6, 3); ctx.fill();
+    ctx.fillStyle = '#eaffff';
+    rr(ctx, 124, 156, 10, 4, 2); ctx.fill();
+    // Lüftungs-Kerben darunter
+    ctx.strokeStyle = 'rgba(20,40,80,0.5)'; ctx.lineWidth = 4;
+    for (const vx of [106, 122, 138]) {
+      ctx.beginPath(); ctx.moveTo(vx, 176); ctx.lineTo(vx + 10, 176); ctx.stroke();
+    }
     // Schüssel oben (nach oben geöffnet)
     ctx.fillStyle = lgrad(ctx, 0, 82, 0, 132, [[0, '#dff9ff'], [1, '#7fc8e8']]);
     ctx.beginPath();
@@ -912,7 +942,7 @@ function buildReparaturdrohne() {
   pad.position.y = 0.75;
   card.add(pad);
 
-  const drone = spritePlane('def-repair-drone', 256, 160, 2.7, 1.7, (ctx) => {
+  const drone = spritePlane('def-repair-drone3', 256, 160, 2.7, 1.7, (ctx) => {
     // Rotor-Ausleger
     ctx.strokeStyle = '#38466b'; ctx.lineWidth = 10; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(92, 84); ctx.lineTo(40, 62); ctx.stroke();
@@ -938,9 +968,9 @@ function buildReparaturdrohne() {
     ctx.strokeStyle = '#38466b'; ctx.lineWidth = 7;
     ctx.beginPath(); ctx.moveTo(104, 116); ctx.lineTo(98, 136); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(152, 116); ctx.lineTo(158, 136); ctx.stroke();
-    // Scheinwerfer
+    // Arbeitslicht-Leiste (statt runder Scheinwerfer)
     ctx.fillStyle = '#ffd23f';
-    ctx.beginPath(); ctx.arc(128, 118, 7, 0, Math.PI * 2); ctx.fill(); o(ctx, 4); ctx.stroke();
+    rr(ctx, 112, 114, 32, 8, 4); ctx.fill(); o(ctx, 4); ctx.stroke();
   });
   drone.position.y = 2.3;
   card.add(drone);
@@ -984,9 +1014,9 @@ export function buildEnemyMesh(typeId) {
 // ------------------------------------------------------------
 const THUMB_KEYS = {
   defender: {
-    solarkollektor: 'def-solar2', laserturm: 'def-laser2', schildgenerator: 'def-schild2',
-    traktorstrahl: 'def-traktor2', plasmakanone: 'def-plasma2', ionenpuls: 'def-ion',
-    raketenwerfer: 'def-rakete', reparaturdrohne: 'def-repair-drone',
+    solarkollektor: 'def-solar2', laserturm: 'def-laser3', schildgenerator: 'def-schild2',
+    traktorstrahl: 'def-traktor3', plasmakanone: 'def-plasma3', ionenpuls: 'def-ion',
+    raketenwerfer: 'def-rakete', reparaturdrohne: 'def-repair-drone3',
   },
   enemy: {
     kleinasteroid: 'en-asteroid', schrottbrocken: 'en-schrott', berstbrocken: 'en-berst',

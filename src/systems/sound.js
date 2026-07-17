@@ -115,6 +115,7 @@ export class Sound {
   bossWarn() { [0, 260, 520].forEach((d) => { this.tone('sawtooth', 115, 78, 0.24, 0.5, d); }); }
   breach() { this.tone('sawtooth', 220, 55, 0.5, 0.55); this.noise(0.4, 0.4, 1200, 90); }
   teleport() { this.tone('sine', 320, 1350, 0.16, 0.25); }
+  charge() { this.tone('sine', 90, 950, 1.15, 0.3); this.tone('sawtooth', 45, 480, 1.15, 0.15); }
   orbital() { this.tone('sine', 1500, 90, 0.7, 0.55); this.noise(0.65, 0.6, 3500, 90); }
   win() { [523, 659, 784, 1047].forEach((f, i) => this.tone('triangle', f, f, 0.28, 0.4, i * 170)); }
   lose() { [392, 330, 262, 196].forEach((f, i) => this.tone('triangle', f, f, 0.32, 0.4, i * 210)); }

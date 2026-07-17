@@ -28,40 +28,48 @@ const ICONS = {
     <rect x="14" y="31.5" width="3" height="3" rx="0.8" fill="#aefc4b"/>
     <rect x="18.5" y="31.5" width="3" height="3" rx="0.8" fill="#aefc4b"/>
     <rect x="23" y="31.5" width="3" height="3" rx="0.8" fill="rgba(174,252,75,0.3)"/></svg>`,
-  laserturm: `<svg viewBox="0 0 40 40"><defs><radialGradient id="gLasP" cx="0.4" cy="0.35" r="0.9"><stop offset="0" stop-color="#d9fbff"/><stop offset="1" stop-color="#2fa3c9"/></radialGradient></defs>
+  laserturm: `<svg viewBox="0 0 40 40"><defs><linearGradient id="gLasR" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="rgba(64,224,255,0.25)"/><stop offset="1" stop-color="#bff7ff"/></linearGradient></defs>
     <g stroke="#1b2447" stroke-width="1.6" stroke-linejoin="round">
-    <rect x="10" y="30" width="20" height="6" rx="3" fill="#3d5a80"/>
-    <rect x="15" y="20" width="10" height="11" rx="3" fill="#6fa8c9"/>
-    <rect x="21" y="11" width="14" height="7" rx="3.5" fill="#4a86ad"/>
-    <circle cx="16" cy="14" r="9" fill="url(#gLasP)"/></g>
-    <rect x="10" y="10.5" width="12" height="7" rx="3.5" fill="#173056"/>
-    <circle cx="17" cy="14" r="2.6" fill="#fff"/><circle cx="18" cy="14" r="1.3" fill="#1b2447"/>
-    <circle cx="36" cy="14.5" r="2.6" fill="#7df3ff"/></svg>`,
+    <polygon points="8,36 11,30 27,30 30,36" fill="#3d5a80"/>
+    <rect x="14" y="26" width="10" height="5" rx="2" fill="#38466b"/>
+    <rect x="4" y="15" width="6" height="10" rx="2" fill="#12203c"/>
+    <polygon points="10,17 22,14.5 29,16 29,23 22,25 10,24" fill="#5f92bd"/>
+    <rect x="27" y="13.5" width="11" height="3.4" rx="1.6" fill="#5f92bd"/>
+    <rect x="27" y="21.5" width="11" height="3.4" rx="1.6" fill="#5f92bd"/></g>
+    <rect x="5.5" y="17" width="3" height="6" rx="1" fill="#40e0ff"/>
+    <rect x="28" y="17.6" width="9.5" height="3.4" rx="1.6" fill="url(#gLasR)"/>
+    <polygon points="13,14 16,13.4 15.4,10 12.4,10.6" fill="#2c3c5c" stroke="#1b2447" stroke-width="1.2"/>
+    <polygon points="18,13 21,12.4 20.4,9 17.4,9.6" fill="#2c3c5c" stroke="#1b2447" stroke-width="1.2"/></svg>`,
   schildgenerator: `<svg viewBox="0 0 40 40">
     <circle cx="20" cy="18" r="16" fill="rgba(80,215,255,0.22)" stroke="rgba(190,250,255,0.9)" stroke-width="1.8"/>
     <g stroke="#1b2447" stroke-width="1.6" stroke-linejoin="round">
-    <rect x="13" y="14" width="14" height="15" rx="4" fill="#7fc8e8"/>
+    <rect x="13" y="13" width="14" height="16" rx="4" fill="#7fc8e8"/>
     <rect x="14.5" y="28" width="4.5" height="4" rx="1.5" fill="#2d4b74"/><rect x="21" y="28" width="4.5" height="4" rx="1.5" fill="#2d4b74"/>
-    <circle cx="20" cy="9.5" r="2.2" fill="#40e0ff"/></g>
-    <line x1="20" y1="14" x2="20" y2="11" stroke="#1b2447" stroke-width="1.6"/>
-    <circle cx="17" cy="19" r="1.5" fill="#fff" stroke="#1b2447" stroke-width="0.8"/><circle cx="23" cy="19" r="1.5" fill="#fff" stroke="#1b2447" stroke-width="0.8"/>
-    <path d="M17.5 23 Q20 25 22.5 23" fill="none" stroke="#1b2447" stroke-width="1.4" stroke-linecap="round"/></svg>`,
+    <circle cx="20" cy="9" r="2.2" fill="#40e0ff"/></g>
+    <line x1="20" y1="13" x2="20" y2="10.5" stroke="#1b2447" stroke-width="1.6"/>
+    <rect x="15.5" y="16" width="9" height="5" rx="1.5" fill="#173056" stroke="#1b2447" stroke-width="1"/>
+    <line x1="17.5" y1="17" x2="17.5" y2="20" stroke="#40e0ff" stroke-width="1.1"/>
+    <line x1="20" y1="17" x2="20" y2="20" stroke="#40e0ff" stroke-width="1.1"/>
+    <line x1="22.5" y1="17" x2="22.5" y2="20" stroke="#40e0ff" stroke-width="1.1"/>
+    <circle cx="17" cy="24.5" r="1.1" fill="#40e0ff"/><circle cx="20" cy="24.5" r="1.1" fill="#40e0ff"/><circle cx="23" cy="24.5" r="1.1" fill="#aefc4b"/></svg>`,
   traktorstrahl: `<svg viewBox="0 0 40 40"><defs><linearGradient id="gTrkP" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="rgba(120,255,220,0.7)"/><stop offset="1" stop-color="rgba(90,220,255,0)"/></linearGradient></defs>
     <polygon points="20,24 6,2 34,2" fill="url(#gTrkP)"/>
     <g stroke="#1b2447" stroke-width="1.6" stroke-linejoin="round">
     <path d="M8 14 Q20 24 32 14 Q20 18 8 14 Z" fill="#bfeef7"/>
     <rect x="14" y="21" width="12" height="10" rx="3" fill="#7fb8dd"/>
     <rect x="11" y="30" width="18" height="6" rx="3" fill="#31456e"/></g>
-    <circle cx="20" cy="26" r="2.4" fill="#fff" stroke="#1b2447" stroke-width="1"/><circle cx="20" cy="25.4" r="1.2" fill="#1b2447"/></svg>`,
-  plasmakanone: `<svg viewBox="0 0 40 40"><defs><radialGradient id="gPlaP" cx="0.38" cy="0.35" r="0.95"><stop offset="0" stop-color="#ffffff"/><stop offset="0.55" stop-color="#f3e0fa"/><stop offset="1" stop-color="#c58ad6"/></radialGradient><radialGradient id="gPlaOrb" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#fff"/><stop offset="0.55" stop-color="#ff9be4"/><stop offset="1" stop-color="rgba(255,77,210,0)"/></radialGradient></defs>
+    <rect x="15.5" y="24" width="9" height="3.6" rx="1.8" fill="#12203c" stroke="#1b2447" stroke-width="1"/>
+    <rect x="16.8" y="25.1" width="5" height="1.4" rx="0.7" fill="#40e0ff"/></svg>`,
+  plasmakanone: `<svg viewBox="0 0 40 40"><defs><linearGradient id="gPlaB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6e6fb"/><stop offset="1" stop-color="#a066bd"/></linearGradient><radialGradient id="gPlaOrb" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#fff"/><stop offset="0.55" stop-color="#ff9be4"/><stop offset="1" stop-color="rgba(255,77,210,0)"/></radialGradient></defs>
     <g stroke="#1b2447" stroke-width="1.6" stroke-linejoin="round">
-    <rect x="8" y="30" width="20" height="6" rx="3" fill="#38466b"/>
-    <rect x="22" y="14" width="13" height="9" rx="4" fill="#c58ad6"/>
-    <circle cx="15" cy="19" r="11.5" fill="url(#gPlaP)"/>
-    <circle cx="14" cy="18" r="5.5" fill="#2c1846"/></g>
-    <circle cx="14" cy="18" r="3.6" fill="#ff9be4"/>
-    <circle cx="12.6" cy="16.6" r="1.2" fill="#fff"/>
-    <circle cx="36" cy="18.5" r="4" fill="url(#gPlaOrb)"/></svg>`,
+    <polygon points="6,36 9,30 27,30 30,36" fill="#38466b"/>
+    <polygon points="8,20 12,14 24,13.5 28,17 28,24 24,27 12,27 8,24" fill="url(#gPlaB)"/>
+    <rect x="26" y="15.5" width="10" height="9" rx="2.5" fill="#c092d6"/>
+    <rect x="28.5" y="14.5" width="2.4" height="11" rx="1.2" fill="#8e5aa8"/>
+    <ellipse cx="36.5" cy="20" rx="2" ry="4.4" fill="#2c1846"/></g>
+    <polygon points="12.5,25.5 14.5,15.5 16.3,15.5 14.3,25.5" fill="#ff4dd2" stroke="#1b2447" stroke-width="1"/>
+    <polygon points="17.5,25.5 19.5,15.5 21.3,15.5 19.3,25.5" fill="#ff4dd2" stroke="#1b2447" stroke-width="1"/>
+    <circle cx="36.5" cy="20" r="3.2" fill="url(#gPlaOrb)"/></svg>`,
   ionenpuls: `<svg viewBox="0 0 40 40"><defs><radialGradient id="gIonP" cx="0.42" cy="0.38" r="0.9"><stop offset="0" stop-color="#ffffff"/><stop offset="0.5" stop-color="#7df3ff"/><stop offset="1" stop-color="#2fa3c9"/></radialGradient></defs>
     <g stroke="#1b2447" stroke-width="1.6" stroke-linejoin="round">
     <rect x="10" y="31" width="20" height="5" rx="2.5" fill="#31456e"/>
