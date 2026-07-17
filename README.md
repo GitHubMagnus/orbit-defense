@@ -1,5 +1,11 @@
 # Orbit Defense
 
+### ▶️ [Jetzt im Browser spielen](https://githubmagnus.github.io/orbit-defense/)
+
+Direkt spielbar auf GitHub Pages — kein Download, keine Installation nötig.
+
+---
+
 Orbit Defense ist ein Lane-basiertes Tower-Defense-Browsergame in three.js im Stil von Plants vs. Zombies. Der Spieler kommandiert die Verteidigungssysteme der Orbitalstation Helios-Warte und hält fünf Andockkorridore gegen Wellen aus Asteroiden, Weltraumschrott und Alien-Drohnen, die den Reaktorkern am linken Bildschirmrand erreichen wollen. Als Ressource dienen gelbe Energie-Blitze, die durchs Spielfeld treiben und per Klick eingesammelt werden; zusätzlich produziert der Solarkollektor passiv Energie. Gelegentlich treiben Power-ups vorbei: Überladung verdoppelt zehn Sekunden lang die Feuerrate aller Türme, der EMP-Puls beschädigt und lähmt alle Gegner, und das Reparatur-Kit setzt alle Gebäude um die Hälfte instand.
 
 Das Spiel läuft ohne Build-Schritt direkt im Browser. three.js wird per Importmap vom CDN geladen und dient als Bühne für einen 2D-Cartoon-Look im Stil von Plants vs. Zombies: Sämtliche Einheiten, Gegner, Projektile und Effekte sind prozedural mit der Canvas-2D-API gezeichnete Sprites (dicke Outlines, Verlaufsfarben, Gesichter) auf kamerazugewandten Planes, animiert mit Squash-&-Stretch-Wackeln statt Skelett-Animation. Externe Assets gibt es keine. Zum Starten genügt ein beliebiger statischer Webserver im Projektordner, zum Beispiel `npx http-server . -p 8137` oder `python -m http.server 8137`, danach `http://localhost:8137` öffnen. Ein direkter Doppelklick auf die `index.html` funktioniert wegen der ES-Module nicht.
