@@ -187,6 +187,14 @@ export class Game {
     if (this.phase !== 'playing') return;
     this.paused = !this.paused;
     this.hud.setPaused(this.paused);
+    if (this.paused) {
+      // in der Pause ist auch das Bauen eingefroren
+      this.hud.hideBuildMenu();
+      this.hud.hideTooltip();
+      this.highlight.visible = false;
+      this.rangeCircle.visible = false;
+      this.rangeStripe.visible = false;
+    }
     this.sound.ui();
   }
 
@@ -421,7 +429,7 @@ export class Game {
 
   // von der HUD-Karte aus gestartet (pointerdown auf einer Einheiten-Karte)
   startDrag(typeId, ev) {
-    if (this.phase !== 'playing') return;
+    if (this.phase !== 'playing' || this.paused) return;
     // Klick auf bereits gewählte Karte: abwählen (Toggle wie bisher)
     if (this.selectedType === typeId) {
       this.hud.select(null);
@@ -520,7 +528,7 @@ export class Game {
   }
 
   onLeftClick(ev) {
-    if (this.phase !== 'playing') return;
+    if (this.phase !== 'playing' || this.paused) return;
     this.updateRaycaster(ev);
     this.hud.hideBuildMenu();
 
@@ -606,6 +614,7 @@ export class Game {
     this.hud.showBuildMenu(defender, x, y, {
       energy: this.energy,
       onUpgrade: (pathKey) => {
+        if (this.paused || defender.dead) return;
         if (!defender.canUpgrade || this.energy < defender.upgradeCost) return;
         this.energy -= defender.upgradeCost;
         defender.upgrade(pathKey);
@@ -617,6 +626,7 @@ export class Game {
         this.openBuildMenu(defender, x, y);
       },
       onSell: () => {
+        if (this.paused || defender.dead) return;
         this.sellDefender(defender, x, y);
         this.hud.hideBuildMenu();
       },
@@ -652,7 +662,7 @@ export class Game {
 
   // Rechtsklick: Info-Tooltip; zweiter Rechtsklick auf dieselbe Einheit verkauft
   onRightClick(ev) {
-    if (this.phase !== 'playing') return;
+    if (this.phase !== 'playing' || this.paused) return;
     const cell = this.pickCell(ev);
     if (!cell) { this.hud.hideTooltip(); this.sellCandidate = null; return; }
     const defender = this.grid[cell.lane][cell.col];
