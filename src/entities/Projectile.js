@@ -137,6 +137,7 @@ export class Projectile {
     this.target = target;       // Enemy oder Defender
     this.damage = damage;
     this.splash = opts.splash ?? 0; // Flächenschaden-Radius am Einschlag
+    this.sourceId = opts.sourceId ?? null; // für die Schadens-Statistik
     this.dead = false;
 
     this.mesh = makeSprite(kind, 1, def.solid);

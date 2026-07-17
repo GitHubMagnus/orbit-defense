@@ -32,82 +32,115 @@ export function createWorld(container) {
   );
   composer.addPass(bloom);
 
-  // ---------- Nebel-Himmel als Hintergrund (mit eingebackenem Planeten) ----------
-  scene.background = getTexture('sky', 1024, 512, (ctx) => {
-    const g = ctx.createLinearGradient(0, 0, 0, 512);
-    g.addColorStop(0, '#241a4e');
-    g.addColorStop(0.45, '#1b2a5e');
-    g.addColorStop(1, '#0b3450');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, 1024, 512);
-    // weiche Nebel-Blasen
-    const blobs = [
-      [180, 120, 190, 'rgba(140,80,200,0.22)'],
-      [720, 90, 160, 'rgba(255,90,180,0.14)'],
-      [520, 300, 240, 'rgba(60,190,220,0.14)'],
-      [900, 340, 170, 'rgba(120,110,230,0.18)'],
-      [90, 380, 150, 'rgba(70,220,190,0.12)'],
-    ];
-    for (const [x, y, r, c] of blobs) {
-      const rg = ctx.createRadialGradient(x, y, 10, x, y, r);
-      rg.addColorStop(0, c);
-      rg.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = rg;
-      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-    }
-    // eingebackene Mini-Sterne
-    for (let i = 0; i < 220; i++) {
-      const x = Math.random() * 1024, y = Math.random() * 512;
-      const r = Math.random() * 1.6 + 0.3;
-      ctx.fillStyle = `rgba(255,255,255,${0.25 + Math.random() * 0.55})`;
-      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-    }
-    // Cartoon-Planet Nereon mit Ring (oben links)
-    const cx = 170, cy = 96, r = 78;
-    ctx.save();
-    ctx.translate(cx, cy); ctx.rotate(-0.26);
-    ctx.strokeStyle = 'rgba(255,190,120,0.9)'; ctx.lineWidth = 13;
-    ctx.beginPath(); ctx.ellipse(0, 0, 118, 34, 0, Math.PI * 0.97, Math.PI * 2.03); ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,120,190,0.55)'; ctx.lineWidth = 5;
-    ctx.beginPath(); ctx.ellipse(0, 0, 118, 34, 0, Math.PI * 0.97, Math.PI * 2.03); ctx.stroke();
-    ctx.restore();
-    const pg = ctx.createRadialGradient(cx - 26, cy - 30, 8, cx, cy, r + 6);
-    pg.addColorStop(0, '#a8f0e0');
-    pg.addColorStop(0.45, '#4fd0c0');
-    pg.addColorStop(0.8, '#2a8fa8');
-    pg.addColorStop(1, '#1c5f86');
-    ctx.fillStyle = pg;
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#1b2447'; ctx.lineWidth = 5; ctx.stroke();
-    ctx.save();
-    ctx.beginPath(); ctx.arc(cx, cy, r - 3, 0, Math.PI * 2); ctx.clip();
-    ctx.fillStyle = 'rgba(255,255,255,0.16)';
-    ctx.beginPath(); ctx.ellipse(cx, cy - 30, r + 20, 16, -0.12, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(20,60,110,0.22)';
-    ctx.beginPath(); ctx.ellipse(cx, cy + 20, r + 20, 14, -0.1, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.20)';
-    for (const [fx, fy, fr] of [[140, 70, 12], [205, 60, 8], [185, 130, 10]]) {
-      ctx.beginPath(); ctx.arc(fx, fy, fr, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.restore();
-    ctx.save();
-    ctx.translate(cx, cy); ctx.rotate(-0.26);
-    ctx.strokeStyle = 'rgba(255,205,130,0.95)'; ctx.lineWidth = 13;
-    ctx.beginPath(); ctx.ellipse(0, 0, 118, 34, 0, -Math.PI * 0.03, Math.PI * 0.97); ctx.stroke();
-    ctx.restore();
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.beginPath(); ctx.ellipse(cx - 34, cy - 40, 20, 9, -0.6, 0, Math.PI * 2); ctx.fill();
-    // kleiner Mond daneben
-    const mg = ctx.createRadialGradient(320, 180, 3, 328, 186, 22);
-    mg.addColorStop(0, '#f4f0ff');
-    mg.addColorStop(1, '#9a93c9');
-    ctx.fillStyle = mg;
-    ctx.beginPath(); ctx.arc(328, 186, 20, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#1b2447'; ctx.lineWidth = 4; ctx.stroke();
-    ctx.fillStyle = 'rgba(90,80,140,0.5)';
-    ctx.beginPath(); ctx.arc(322, 190, 4, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(334, 180, 3, 0, Math.PI * 2); ctx.fill();
-  });
+  // ---------- Level-Themes: jeder Sektor hat eigene Farbstimmung ----------
+  const THEMES = [
+    { // 0: Sektor Nereon — türkis/indigo (Original-Look)
+      sky: ['#241a4e', '#1b2a5e', '#0b3450'],
+      blobs: [
+        [180, 120, 190, 'rgba(140,80,200,0.22)'], [720, 90, 160, 'rgba(255,90,180,0.14)'],
+        [520, 300, 240, 'rgba(60,190,220,0.14)'], [900, 340, 170, 'rgba(120,110,230,0.18)'],
+      ],
+      planet: ['#a8f0e0', '#4fd0c0', '#2a8fa8', '#1c5f86'],
+      ringA: 'rgba(255,190,120,0.9)', ringB: 'rgba(255,120,190,0.55)',
+      laneA: '#25688e', laneB: '#153f60',
+      rail: 0x11607a, railBright: 0x2f96b8,
+    },
+    { // 1: Sektor Vortex — magenta/violett
+      sky: ['#3a1147', '#3a1a66', '#1b1145'],
+      blobs: [
+        [200, 140, 200, 'rgba(255,80,180,0.2)'], [760, 100, 180, 'rgba(255,140,80,0.12)'],
+        [520, 320, 240, 'rgba(150,70,230,0.2)'], [80, 380, 150, 'rgba(255,90,120,0.12)'],
+      ],
+      planet: ['#ffd6a8', '#f5a05a', '#c26a4a', '#8a4038'],
+      ringA: 'rgba(190,120,255,0.9)', ringB: 'rgba(120,200,255,0.55)',
+      laneA: '#5b3a8e', laneB: '#3a2560',
+      rail: 0x6a3aa0, railBright: 0xb07ad8,
+    },
+    { // 2: Sektor Abyss — tiefdunkel mit Glut
+      sky: ['#0b0a22', '#141033', '#04121f'],
+      blobs: [
+        [220, 130, 190, 'rgba(200,60,80,0.16)'], [740, 100, 170, 'rgba(80,60,200,0.16)'],
+        [500, 320, 240, 'rgba(40,180,140,0.12)'], [920, 360, 150, 'rgba(160,50,120,0.14)'],
+      ],
+      planet: ['#c9b0ff', '#7a5ad0', '#4a338f', '#2a1c5c'],
+      ringA: 'rgba(255,90,90,0.85)', ringB: 'rgba(255,180,90,0.5)',
+      laneA: '#1c5a50', laneB: '#0f3833',
+      rail: 0x18705a, railBright: 0x3ecf9a,
+    },
+  ];
+
+  function skyTexture(themeIndex) {
+    const th = THEMES[themeIndex];
+    return getTexture(`sky-${themeIndex}`, 1024, 512, (ctx) => {
+      const g = ctx.createLinearGradient(0, 0, 0, 512);
+      g.addColorStop(0, th.sky[0]);
+      g.addColorStop(0.45, th.sky[1]);
+      g.addColorStop(1, th.sky[2]);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, 1024, 512);
+      for (const [x, y, r, c] of th.blobs) {
+        const rg = ctx.createRadialGradient(x, y, 10, x, y, r);
+        rg.addColorStop(0, c);
+        rg.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = rg;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      }
+      // eingebackene Mini-Sterne
+      for (let i = 0; i < 220; i++) {
+        const x = Math.random() * 1024, y = Math.random() * 512;
+        const r = Math.random() * 1.6 + 0.3;
+        ctx.fillStyle = `rgba(255,255,255,${0.25 + Math.random() * 0.55})`;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      }
+      // Cartoon-Planet mit Ring (oben links)
+      const cx = 170, cy = 96, r = 78;
+      ctx.save();
+      ctx.translate(cx, cy); ctx.rotate(-0.26);
+      ctx.strokeStyle = th.ringA; ctx.lineWidth = 13;
+      ctx.beginPath(); ctx.ellipse(0, 0, 118, 34, 0, Math.PI * 0.97, Math.PI * 2.03); ctx.stroke();
+      ctx.strokeStyle = th.ringB; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.ellipse(0, 0, 118, 34, 0, Math.PI * 0.97, Math.PI * 2.03); ctx.stroke();
+      ctx.restore();
+      const pg = ctx.createRadialGradient(cx - 26, cy - 30, 8, cx, cy, r + 6);
+      pg.addColorStop(0, th.planet[0]);
+      pg.addColorStop(0.45, th.planet[1]);
+      pg.addColorStop(0.8, th.planet[2]);
+      pg.addColorStop(1, th.planet[3]);
+      ctx.fillStyle = pg;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#1b2447'; ctx.lineWidth = 5; ctx.stroke();
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, cy, r - 3, 0, Math.PI * 2); ctx.clip();
+      ctx.fillStyle = 'rgba(255,255,255,0.16)';
+      ctx.beginPath(); ctx.ellipse(cx, cy - 30, r + 20, 16, -0.12, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(20,30,70,0.25)';
+      ctx.beginPath(); ctx.ellipse(cx, cy + 20, r + 20, 14, -0.1, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.20)';
+      for (const [fx, fy, fr] of [[140, 70, 12], [205, 60, 8], [185, 130, 10]]) {
+        ctx.beginPath(); ctx.arc(fx, fy, fr, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+      ctx.save();
+      ctx.translate(cx, cy); ctx.rotate(-0.26);
+      ctx.strokeStyle = th.ringA; ctx.lineWidth = 13;
+      ctx.beginPath(); ctx.ellipse(0, 0, 118, 34, 0, -Math.PI * 0.03, Math.PI * 0.97); ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.beginPath(); ctx.ellipse(cx - 34, cy - 40, 20, 9, -0.6, 0, Math.PI * 2); ctx.fill();
+      // kleiner Mond daneben
+      const mg = ctx.createRadialGradient(320, 180, 3, 328, 186, 22);
+      mg.addColorStop(0, '#f4f0ff');
+      mg.addColorStop(1, '#9a93c9');
+      ctx.fillStyle = mg;
+      ctx.beginPath(); ctx.arc(328, 186, 20, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#1b2447'; ctx.lineWidth = 4; ctx.stroke();
+      ctx.fillStyle = 'rgba(90,80,140,0.5)';
+      ctx.beginPath(); ctx.arc(322, 190, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(334, 180, 3, 0, Math.PI * 2); ctx.fill();
+    });
+  }
+
+  scene.background = skyTexture(0);
 
   // ---------- funkelnde Sterne (zwei Ebenen, gegenphasig) ----------
   // Wichtig: die Kamera schaut steil nach unten — sichtbarer "Himmel" liegt
@@ -160,12 +193,19 @@ export function createWorld(container) {
       ctx.strokeRect(1.5, 1.5, COLS * 64 - 3, 69);
     });
   }
-  const texA = checkerTexture('lane-a', '#25688e', '#153f60', 'rgba(80,225,255,0.55)');
-  const texB = checkerTexture('lane-b', '#153f60', '#25688e', 'rgba(80,225,255,0.55)');
+  function laneTextures(themeIndex) {
+    const th = THEMES[themeIndex];
+    return [
+      checkerTexture(`lane-a-${themeIndex}`, th.laneA, th.laneB, 'rgba(80,225,255,0.55)'),
+      checkerTexture(`lane-b-${themeIndex}`, th.laneB, th.laneA, 'rgba(80,225,255,0.55)'),
+    ];
+  }
+  const [texA, texB] = laneTextures(0);
 
   const railMats = [];
   const portals = [];
   const cores = [];
+  const floors = [];
 
   const approachTex = getTexture('approach', 256, 64, (ctx) => {
     const g = ctx.createLinearGradient(0, 0, 256, 0);
@@ -186,6 +226,7 @@ export function createWorld(container) {
     floor.rotation.x = -Math.PI / 2;
     floor.position.set(gridCX, 0, z);
     scene.add(floor);
+    floors.push(floor);
 
     // Zuläufe links/rechts (dunkler)
     const laneLen = SPAWN_X - CORE_X + 6;
@@ -313,6 +354,49 @@ export function createWorld(container) {
   let starTimer = 3;
   let starLife = 0;
 
+  // ---------- Frachter-Konvoi (Deko, zieht gelegentlich vorbei) ----------
+  const freighter = spritePlane('freighter', 256, 96, 7.5, 2.8, (ctx) => {
+    ctx.strokeStyle = '#1b2447'; ctx.lineWidth = 5; ctx.lineJoin = 'round';
+    // Rumpf mit Container-Segmenten
+    ctx.fillStyle = '#5b7290';
+    rrPath(ctx, 30, 34, 170, 30, 10); ctx.fill(); ctx.stroke();
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = i % 2 ? '#c96f3b' : '#3ecf6a';
+      rrPath(ctx, 44 + i * 36, 26, 28, 16, 4); ctx.fill(); ctx.stroke();
+    }
+    // Cockpit vorn
+    ctx.fillStyle = '#8fd8ea';
+    rrPath(ctx, 196, 36, 34, 24, 10); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#eaffff';
+    ctx.beginPath(); ctx.arc(216, 47, 6, 0, Math.PI * 2); ctx.fill();
+    // Triebwerks-Glühen hinten
+    const eg = ctx.createLinearGradient(0, 0, 34, 0);
+    eg.addColorStop(0, 'rgba(255,200,90,0)');
+    eg.addColorStop(1, 'rgba(255,200,90,0.9)');
+    ctx.fillStyle = eg;
+    ctx.beginPath();
+    ctx.moveTo(2, 42); ctx.lineTo(30, 38); ctx.lineTo(30, 58); ctx.lineTo(2, 52);
+    ctx.closePath(); ctx.fill();
+    // zwei kleine Eskorten-Punkte
+    ctx.fillStyle = '#bff3ff';
+    ctx.beginPath(); ctx.arc(80, 14, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(150, 82, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  });
+  function rrPath(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+  freighter.quaternion.copy(spriteQuaternion());
+  freighter.visible = false;
+  scene.add(freighter);
+  let freighterTimer = 14;
+  let freighterDir = 1;
+
   // Unsichtbare Ebene fürs Maus-Picking
   const pickPlane = new THREE.Mesh(
     new THREE.PlaneGeometry(300, 300),
@@ -337,6 +421,19 @@ export function createWorld(container) {
   // bewusst gedeckte Töne: helle Streifen würden per Bloom über die Figuren strahlen
   const railBase = new THREE.Color(0x11607a);
   const railBright = new THREE.Color(0x2f96b8);
+
+  // Theme wechseln (pro Level): Himmel, Lane-Farben, Streifen-Farben
+  function applyTheme(themeIndex) {
+    const i = themeIndex % THEMES.length;
+    scene.background = skyTexture(i);
+    const [a, b] = laneTextures(i);
+    floors.forEach((floor, k) => {
+      floor.material.map = k % 2 ? a : b;
+      floor.material.needsUpdate = true;
+    });
+    railBase.set(THEMES[i].rail);
+    railBright.set(THEMES[i].railBright);
+  }
 
   function updateEnvironment(dt, time) {
     const size = renderer.getSize(new THREE.Vector2());
@@ -378,6 +475,21 @@ export function createWorld(container) {
       if (rock.position.x < -65) rock.position.x = 75;
     }
 
+    // Frachter-Konvoi zieht langsam vorbei
+    if (freighter.visible) {
+      freighter.position.x += dt * 4.5 * freighterDir;
+      if (Math.abs(freighter.position.x) > 60) freighter.visible = false;
+    } else {
+      freighterTimer -= dt;
+      if (freighterTimer <= 0) {
+        freighterTimer = 24 + Math.random() * 22;
+        freighterDir = Math.random() < 0.5 ? 1 : -1;
+        freighter.position.set(-58 * freighterDir, -5 - Math.random() * 5, -48 - Math.random() * 15);
+        freighter.scale.x = freighterDir; // Blickrichtung spiegeln
+        freighter.visible = true;
+      }
+    }
+
     // Sternschnuppe
     if (shootingStar.visible) {
       starLife -= dt;
@@ -398,5 +510,5 @@ export function createWorld(container) {
     }
   }
 
-  return { scene, camera, renderer, composer, pickPlane, updateEnvironment };
+  return { scene, camera, renderer, composer, pickPlane, updateEnvironment, applyTheme };
 }

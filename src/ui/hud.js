@@ -123,11 +123,28 @@ export class HUD {
       gameoverStats: document.getElementById('gameover-stats'),
       winScreen: document.getElementById('win-screen'),
       winUnlocks: document.getElementById('win-unlocks'),
+      winStars: document.getElementById('win-stars'),
       buildMenu: document.getElementById('build-menu'),
       levelSelect: document.getElementById('level-select'),
       lexicon: document.getElementById('lexicon-screen'),
       lexContent: document.getElementById('lex-content'),
       dragGhost: document.getElementById('drag-ghost'),
+      waveBar: document.getElementById('wave-bar'),
+      waveBarFill: document.getElementById('wave-bar-fill'),
+      waveBarFlags: document.getElementById('wave-bar-flags'),
+      wavePreview: document.getElementById('wave-preview'),
+      bossBar: document.getElementById('boss-bar'),
+      bossBarFill: document.getElementById('boss-bar-fill'),
+      bossBarLabel: document.getElementById('boss-bar-label'),
+      skipBtn: document.getElementById('skip-wave-btn'),
+      pauseBtn: document.getElementById('pause-btn'),
+      speedBtn: document.getElementById('speed-btn'),
+      muteBtn: document.getElementById('mute-btn'),
+      orbitalBtn: document.getElementById('orbital-btn'),
+      vignette: document.getElementById('hit-vignette'),
+      pauseOverlay: document.getElementById('pause-overlay'),
+      statsWin: document.getElementById('win-stats'),
+      statsGameover: document.getElementById('gameover-endstats'),
     };
 
     this.buildIntegrity();
@@ -143,6 +160,134 @@ export class HUD {
     document.getElementById('lexicon-close').addEventListener('click', () => {
       this.el.lexicon.classList.add('hidden');
     });
+
+    // Steuer-Buttons: Pause, Tempo, Ton, Welle überspringen, Orbitalschlag
+    this.el.pauseBtn.addEventListener('click', () => this.cb.onPause());
+    this.el.speedBtn.addEventListener('click', () => this.cb.onSpeed());
+    this.el.muteBtn.addEventListener('click', () => {
+      const muted = this.cb.onMute();
+      this.el.muteBtn.textContent = muted ? '🔇' : '🔊';
+    });
+    this.el.muteBtn.textContent = this.cb.sound?.muted ? '🔇' : '🔊';
+    this.el.skipBtn.addEventListener('click', () => this.cb.onSkipWave());
+    this.el.orbitalBtn.addEventListener('click', () => this.cb.onOrbital());
+  }
+
+  // ---------- Steuer-Zustände ----------
+
+  setPaused(paused) {
+    this.el.pauseBtn.textContent = paused ? '▶' : '⏸';
+    this.el.pauseOverlay.classList.toggle('hidden', !paused);
+  }
+
+  setSpeed(scale) {
+    this.el.speedBtn.textContent = `×${scale}`;
+    this.el.speedBtn.classList.toggle('active', scale > 1);
+  }
+
+  setSkipButton(bonus) {
+    if (bonus === null) {
+      this.el.skipBtn.classList.add('hidden');
+    } else {
+      this.el.skipBtn.classList.remove('hidden');
+      this.el.skipBtn.innerHTML = `⏩ Welle jetzt ${boltSvg}+${bonus}`;
+    }
+  }
+
+  setOrbital(cooldown, maxCooldown, affordable, armed) {
+    const btn = this.el.orbitalBtn;
+    const ready = cooldown <= 0 && affordable;
+    btn.classList.toggle('ready', ready);
+    btn.classList.toggle('armed', armed);
+    const pct = Math.round((1 - cooldown / maxCooldown) * 100);
+    btn.style.setProperty('--cd', `${cooldown > 0 ? pct : 100}%`);
+    btn.title = cooldown > 0
+      ? `Orbitalschlag bereit in ${Math.ceil(cooldown)} s`
+      : `Orbitalschlag (Q): 100 Energie, Fläche 150 Schaden`;
+  }
+
+  flashVignette() {
+    const v = this.el.vignette;
+    v.classList.remove('active');
+    void v.offsetWidth;
+    v.classList.add('active');
+  }
+
+  // ---------- Wellen-Fortschritt, Vorschau & Boss-Leiste ----------
+
+  buildWaveBar(level) {
+    const bar = this.el.waveBar;
+    if (!level) {
+      // Endlos-Modus: keine feste Leiste
+      bar.classList.add('endless');
+      this.el.waveBarFlags.innerHTML = '';
+      return;
+    }
+    bar.classList.remove('endless');
+    const total = level.waves.length;
+    const flags = [];
+    level.waves.forEach((wave, i) => {
+      const hasBoss = wave.entries.some((e) => e.type === 'mutterschiffFragment');
+      if (hasBoss || wave.danger) {
+        const left = ((i + 1) / total) * 100;
+        flags.push(`<span class="wave-flag" style="left:${left}%">${hasBoss ? '💀' : '⚠️'}</span>`);
+      }
+    });
+    this.el.waveBarFlags.innerHTML = flags.join('');
+    this.setWaveProgress(0, null);
+  }
+
+  setWaveProgress(fraction, endlessWave) {
+    if (endlessWave !== null && endlessWave !== undefined) {
+      this.el.waveBarFill.style.width = '100%';
+      return;
+    }
+    this.el.waveBarFill.style.width = `${Math.round(fraction * 100)}%`;
+  }
+
+  showWavePreview(wave) {
+    if (!wave) { this.hideWavePreview(); return; }
+    // Gegner-Typen der nächsten Welle zählen
+    const counts = new Map();
+    for (const e of wave.entries) counts.set(e.type, (counts.get(e.type) ?? 0) + 1);
+    const parts = ['<span class="wp-label">Als Nächstes:</span>'];
+    for (const [type, n] of counts) {
+      const thumb = getThumbnail('enemy', type);
+      const name = ENEMY_TYPES[type]?.name ?? type;
+      parts.push(`<span class="wp-item" title="${name}">${thumb ? `<img src="${thumb}" alt="${name}">` : '❓'}×${n}</span>`);
+    }
+    this.el.wavePreview.innerHTML = parts.join('');
+    this.el.wavePreview.classList.remove('hidden');
+  }
+
+  hideWavePreview() {
+    this.el.wavePreview.classList.add('hidden');
+  }
+
+  showBossBar(fraction, count, weak) {
+    const bar = this.el.bossBar;
+    bar.classList.remove('hidden');
+    bar.classList.toggle('weak', !!weak);
+    this.el.bossBarFill.style.width = `${Math.max(0, Math.round(fraction * 100))}%`;
+    this.el.bossBarLabel.textContent = weak
+      ? '💀 MUTTERSCHIFF-FRAGMENT — REAKTOR OFFEN, JETZT!'
+      : `💀 Mutterschiff-Fragment${count > 1 ? ` ×${count}` : ''}`;
+  }
+
+  hideBossBar() {
+    this.el.bossBar.classList.add('hidden');
+  }
+
+  // ---------- Level-Statistik auf den End-Screens ----------
+
+  setEndStats(which, s) {
+    const el = which === 'win' ? this.el.statsWin : this.el.statsGameover;
+    el.innerHTML = `
+      <span class="stat-chip">☠️ ${s.kills} Abschüsse</span>
+      <span class="stat-chip">${boltSvg} ${s.energy} gesammelt</span>
+      <span class="stat-chip">🏗️ ${s.built} gebaut</span>
+      ${s.mvp ? `<span class="stat-chip mvp">🏅 MVP: ${s.mvp}</span>` : ''}
+    `;
   }
 
   // Fortschritts-abhängige UI (Level-Buttons + Einheiten-Leiste) neu aufbauen
@@ -157,14 +302,28 @@ export class HUD {
     this.el.levelSelect.innerHTML = '';
     this.levels.forEach((level, i) => {
       const locked = i + 1 > this.progress.levelsUnlocked;
+      const stars = this.progress.stars?.[i] ?? 0;
+      const starHtml = stars > 0
+        ? `<span class="btn-stars">${'★'.repeat(stars)}${'<span class="star-empty">★</span>'.repeat(3 - stars)}</span>`
+        : '';
       const btn = document.createElement('button');
       btn.className = 'level-btn' + (locked ? ' locked' : '');
       btn.innerHTML = locked
         ? `🔒 Level ${i + 1} — ${level.name}<span class="lock-hint">Gewinne Level ${i}, um freizuschalten</span>`
-        : `Level ${i + 1} — ${level.name}`;
+        : `Level ${i + 1} — ${level.name}${starHtml}`;
       if (!locked) btn.addEventListener('click', () => this.cb.onStartLevel(i));
       this.el.levelSelect.appendChild(btn);
     });
+
+    // Endlos-Modus "Ansturm" (frei nach dem ersten Levelsieg)
+    const endlessLocked = this.progress.levelsUnlocked < 2;
+    const eb = document.createElement('button');
+    eb.className = 'level-btn endless-btn' + (endlessLocked ? ' locked' : '');
+    eb.innerHTML = endlessLocked
+      ? `🔒 ∞ Ansturm-Modus<span class="lock-hint">Gewinne Level 1, um freizuschalten</span>`
+      : `∞ Ansturm-Modus${this.progress.endlessBest > 0 ? `<span class="lock-hint">Rekord: Welle ${this.progress.endlessBest}</span>` : '<span class="lock-hint">Unendliche Wellen — wie weit kommst du?</span>'}`;
+    if (!endlessLocked) eb.addEventListener('click', () => this.cb.onStartEndless());
+    this.el.levelSelect.appendChild(eb);
     // freigeschaltete Skills anzeigen
     const owned = this.progress.skills.map((s) => SKILLS[s]).filter(Boolean);
     let skillLine = document.getElementById('skill-line');
@@ -289,6 +448,8 @@ export class HUD {
     if (countdown !== null) {
       const label = current === 0 ? 'Erste Welle' : `Welle ${current + 1}`;
       this.el.waveLabel.textContent = `${label} in ${Math.ceil(countdown)} s`;
+    } else if (!Number.isFinite(total)) {
+      this.el.waveLabel.textContent = `Ansturm — Welle ${current}`;
     } else {
       this.el.waveLabel.textContent = `Welle ${current} / ${total}`;
     }
@@ -404,7 +565,11 @@ export class HUD {
 
   // ---------- Sieg-Screen mit Freischaltungen ----------
 
-  showWinScreen(unlocks, levels, wonLevelIndex) {
+  showWinScreen(unlocks, levels, wonLevelIndex, stars = 0) {
+    // Sterne-Bewertung (nach Rest-Integrität)
+    this.el.winStars.innerHTML = [1, 2, 3].map((i) =>
+      `<span class="win-star ${i <= stars ? 'earned' : ''}" style="animation-delay:${i * 0.25}s">★</span>`
+    ).join('');
     const parts = [];
     for (const lv of unlocks?.levels ?? []) {
       parts.push(`<div class="unlock-item">🗺️ Neues Level: <b>Level ${lv} — ${levels[lv - 1].name}</b></div>`);
@@ -509,7 +674,9 @@ export class HUD {
     this.el.hud.classList.toggle('hidden', name !== 'game');
   }
 
-  setGameoverStats(wave, total) {
-    this.el.gameoverStats.textContent = `Erreicht: Welle ${wave} von ${total}.`;
+  setGameoverStats(wave, total, endlessLine = '') {
+    this.el.gameoverStats.textContent = endlessLine
+      ? endlessLine
+      : `Erreicht: Welle ${wave} von ${total}.`;
   }
 }

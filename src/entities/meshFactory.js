@@ -319,6 +319,43 @@ function glowDisc(key, color, worldSize) {
   }, { additive: true });
 }
 
+// Elite-Gegner: pulsierende gold-rote Aura (Markierung für verstärkte Varianten)
+export function makeEliteAura(size = 3.2) {
+  const m = spritePlane('elite-aura', 160, 160, size, size, (ctx) => {
+    const g = rgrad(ctx, 80, 80, 24, 78, [
+      [0, 'rgba(255,120,50,0)'],
+      [0.65, 'rgba(255,160,50,0.4)'],
+      [0.88, 'rgba(255,210,63,0.75)'],
+      [1, 'rgba(255,160,50,0)'],
+    ]);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(80, 80, 78, 0, Math.PI * 2); ctx.fill();
+    // kleine Zacken-Krone oben
+    ctx.fillStyle = '#ffd23f';
+    ctx.strokeStyle = '#7a4d00'; ctx.lineWidth = 4; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(56, 34); ctx.lineTo(62, 16) ; ctx.lineTo(72, 30);
+    ctx.lineTo(80, 12); ctx.lineTo(88, 30); ctx.lineTo(98, 16); ctx.lineTo(104, 34);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  }, { additive: true });
+  return m;
+}
+
+// weißer Treffer-Blitz (kurz eingeblendet, wenn ein Gegner Schaden nimmt)
+export function makeHitFlash(size = 2.4) {
+  const m = spritePlane('hit-flash', 128, 128, size, size, (ctx) => {
+    const g = rgrad(ctx, 64, 64, 6, 60, [
+      [0, 'rgba(255,255,255,0.95)'],
+      [0.5, 'rgba(255,255,255,0.55)'],
+      [1, 'rgba(255,255,255,0)'],
+    ]);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(64, 64, 60, 0, Math.PI * 2); ctx.fill();
+  }, { additive: true });
+  m.visible = false;
+  return m;
+}
+
 // 4-Zack-Funkelstern
 function sparklePlane(key, color, worldSize) {
   return spritePlane(`spark-${key}`, 96, 96, worldSize, worldSize, (ctx) => {
@@ -1504,16 +1541,25 @@ function buildMutterschiff() {
   g.add(ring);
 
   const phase = Math.random() * Math.PI * 2;
+  let weakOpen = false; // Schwächephase: Reaktorschlund offen -> doppelter Schaden
 
   return {
     group: g,
+    setWeak(on) { weakOpen = on; },
     animate(dt, time) {
       card.position.y = Math.sin(time * 1.6 + phase) * 0.16;
       card.rotation.z = Math.sin(time * 1.1 + phase) * 0.035;
-      ring.rotation.z += dt * 0.9;
-      const pulse = 0.8 + Math.sin(time * 4 + phase) * 0.25;
-      core.scale.setScalar(pulse);
-      core.material.opacity = 0.5 + pulse * 0.35;
+      ring.rotation.z += dt * (weakOpen ? 3.2 : 0.9);
+      if (weakOpen) {
+        // Schlund weit offen: Kern grell und groß, deutliches "Jetzt zuschlagen!"-Signal
+        const pulse = 1.5 + Math.sin(time * 12 + phase) * 0.35;
+        core.scale.setScalar(pulse);
+        core.material.opacity = 0.95;
+      } else {
+        const pulse = 0.8 + Math.sin(time * 4 + phase) * 0.25;
+        core.scale.setScalar(pulse);
+        core.material.opacity = 0.5 + pulse * 0.35;
+      }
     },
   };
 }

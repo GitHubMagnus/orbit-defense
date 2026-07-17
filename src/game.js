@@ -10,10 +10,15 @@ import { CrystalSystem } from './systems/crystals.js';
 import { PowerUpSystem, POWERUP_TYPES } from './systems/powerups.js';
 import { WaveManager } from './systems/waves.js';
 import { HUD } from './ui/hud.js';
-import { DEFENDER_TYPES } from './data/defenders.js';
+import { DEFENDER_TYPES, DEFENDER_ORDER } from './data/defenders.js';
 import { ENEMY_TYPES } from './data/enemies.js';
 import { LEVELS } from './data/levels.js';
-import { loadProgress, unlockAfterWin } from './systems/progress.js';
+import {
+  loadProgress, unlockAfterWin, starsForIntegrity, recordStars, recordEndlessBest,
+} from './systems/progress.js';
+import { Sound } from './systems/sound.js';
+import { ENDLESS_LEVEL } from './data/endless.js';
+import { getTexture } from './entities/meshFactory.js';
 import {
   LANES, COLS, CELL_X, laneZ, colX, GRID_LEFT_X, SPAWN_X,
   START_ENERGY, START_INTEGRITY, LANE_SPACING,
@@ -26,14 +31,77 @@ export class Game {
     this.crystals = new CrystalSystem(this.world.scene);
     this.powerups = new PowerUpSystem(this.world.scene);
     this.progress = loadProgress();
+    this.sound = new Sound();
     this.hud = new HUD({
-      onSelectUnit: (t) => { this.selectedType = t; },
+      onSelectUnit: (t) => {
+        this.selectedType = t;
+        if (!t) {
+          // Auswahl aufgehoben: alle Vorschau-Marker ausblenden
+          if (this.rangeCircle) this.rangeCircle.visible = false;
+          if (this.rangeStripe) this.rangeStripe.visible = false;
+          if (this.highlight) this.highlight.visible = false;
+        }
+      },
       onStartLevel: (i) => this.startLevel(i),
+      onStartEndless: () => this.startLevel(-1),
       onRestart: () => this.startLevel(this.currentLevel),
       onLevelSelect: () => this.hud.showScreen('start'),
       onDragStart: (t, ev) => this.startDrag(t, ev),
+      onPause: () => this.togglePause(),
+      onSpeed: () => this.toggleSpeed(),
+      onMute: () => this.sound.toggleMuted(),
+      onSkipWave: () => this.skipWave(),
+      onOrbital: () => this.armOrbital(),
+      sound: this.sound,
     });
     this.hud.refreshMeta(this.progress, LEVELS);
+
+    // Tempo/Pause + Orbitalschlag
+    this.timeScale = 1;
+    this.paused = false;
+    this.orbitalCooldown = 0;
+    this.pendingStrikes = [];
+    this.shakeT = 0;
+    this.camBase = this.world.camera.position.clone();
+
+    // AudioContext braucht eine Nutzer-Geste
+    window.addEventListener('pointerdown', () => this.sound.ensure(), { once: false });
+
+    // Reichweiten-Vorschau (Kreis für Radial-Türme, Streifen für Lane-Schützen)
+    this.rangeCircle = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({
+        map: getTexture('range-ring', 256, 256, (ctx) => {
+          ctx.strokeStyle = 'rgba(120,240,255,0.9)';
+          ctx.lineWidth = 6;
+          ctx.setLineDash([16, 10]);
+          ctx.beginPath(); ctx.arc(128, 128, 122, 0, Math.PI * 2); ctx.stroke();
+          const g = ctx.createRadialGradient(128, 128, 40, 128, 128, 122);
+          g.addColorStop(0, 'rgba(120,240,255,0.02)');
+          g.addColorStop(1, 'rgba(120,240,255,0.14)');
+          ctx.fillStyle = g;
+          ctx.beginPath(); ctx.arc(128, 128, 122, 0, Math.PI * 2); ctx.fill();
+        }),
+        transparent: true, depthWrite: false,
+      })
+    );
+    this.rangeCircle.rotation.x = -Math.PI / 2;
+    this.rangeCircle.position.y = 0.08;
+    this.rangeCircle.renderOrder = -1;
+    this.rangeCircle.visible = false;
+    this.world.scene.add(this.rangeCircle);
+
+    this.rangeStripe = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({
+        color: 0x78f0ff, transparent: true, opacity: 0.12, depthWrite: false,
+      })
+    );
+    this.rangeStripe.rotation.x = -Math.PI / 2;
+    this.rangeStripe.position.y = 0.08;
+    this.rangeStripe.renderOrder = -1;
+    this.rangeStripe.visible = false;
+    this.world.scene.add(this.rangeStripe);
 
     this.phase = 'menu'; // menu | playing | gameover | win
     this.currentLevel = 0;
@@ -59,8 +127,12 @@ export class Game {
 
   // ---------- Level-Lebenszyklus ----------
 
+  // levelIndex -1 = Endlos-Modus "Ansturm"
   startLevel(levelIndex) {
-    if (levelIndex + 1 > this.progress.levelsUnlocked) return; // noch gesperrt
+    this.endless = levelIndex === -1;
+    if (this.endless && this.progress.levelsUnlocked < 2) return; // erst nach Sieg in Level 1
+    if (!this.endless && levelIndex + 1 > this.progress.levelsUnlocked) return; // noch gesperrt
+    const level = this.endless ? ENDLESS_LEVEL : LEVELS[levelIndex];
     this.currentLevel = levelIndex;
     this.clearEntities();
     this.crystals.reset();
@@ -76,19 +148,83 @@ export class Game {
     this.hud.select(null);
     this.hud.hideBuildMenu();
 
-    this.waves = new WaveManager(LEVELS[levelIndex], {
-      spawnEnemy: (type, lane) => this.spawnEnemy(type, lane),
+    // Statistik für den Level-Abschluss
+    this.stats = { kills: 0, energyCollected: 0, built: 0, damageByTower: {} };
+    this.paused = false;
+    this.timeScale = 1;
+    this.orbitalCooldown = 0;
+    this.pendingStrikes = [];
+    this.hud.setPaused(false);
+    this.hud.setSpeed(1);
+
+    // Level-Theme (Endlos: Abyss-Look)
+    this.world.applyTheme(this.endless ? 2 : levelIndex);
+
+    this.waves = new WaveManager(level, {
+      spawnEnemy: (type, lane, elite) => this.spawnEnemy(type, lane, elite),
       onWaveStart: (i, wave) => {
         this.hud.showBanner(`WELLE ${i + 1}`, wave.label ?? '', !!wave.danger);
+        this.hud.hideWavePreview();
+        this.sound.waveStart();
       },
       onAllWavesCleared: () => this.win(),
     });
+    this.hud.buildWaveBar(this.endless ? null : level);
+    this.hud.hideBossBar();
+    this.lastPreviewWave = -2;
 
     this.phase = 'playing';
     this.hud.showScreen('game');
     this.hud.setEnergy(this.energy);
     this.hud.setIntegrity(this.integrity);
-    this.hud.showBanner('SYSTEME ONLINE', 'Baue deine Verteidigung auf!');
+    this.hud.showBanner(
+      this.endless ? 'ANSTURM-MODUS' : 'SYSTEME ONLINE',
+      this.endless ? `Rekord: Welle ${this.progress.endlessBest} — wie weit kommst du?` : 'Baue deine Verteidigung auf!'
+    );
+  }
+
+  togglePause() {
+    if (this.phase !== 'playing') return;
+    this.paused = !this.paused;
+    this.hud.setPaused(this.paused);
+    this.sound.ui();
+  }
+
+  toggleSpeed() {
+    this.timeScale = this.timeScale === 1 ? 2 : 1;
+    this.hud.setSpeed(this.timeScale);
+    this.sound.ui();
+  }
+
+  // Verschnaufpause überspringen: 2 Energie pro übersprungener Sekunde
+  skipWave() {
+    if (this.phase !== 'playing' || this.paused) return;
+    const skipped = this.waves.skipCountdown();
+    if (skipped > 0.5) {
+      const bonus = Math.ceil(skipped * 2);
+      this.energy += bonus;
+      this.hud.setEnergy(this.energy, true);
+      this.hud.showBanner('WELLE VORGEZOGEN', `+${bonus} Energie-Bonus`);
+      this.sound.powerup();
+    }
+  }
+
+  // Orbitalschlag: Ziel wählen, kurzer Countdown, dann Flächenschaden
+  armOrbital() {
+    if (this.phase !== 'playing' || this.paused) return;
+    if (this.orbitalCooldown > 0 || this.energy < 100) return;
+    this.hud.select(this.selectedType === 'orbital' ? null : 'orbital');
+    this.sound.ui();
+  }
+
+  fireOrbital(cell) {
+    this.energy -= 100;
+    this.orbitalCooldown = 45;
+    this.hud.setEnergy(this.energy);
+    const pos = new THREE.Vector3(colX(cell.col), 0, laneZ(cell.lane));
+    this.pendingStrikes.push({ pos, t: 0.8 });
+    this.particles.shockwave(pos.clone().add(new THREE.Vector3(0, 0.5, 0)), 0xffffff, 3);
+    this.hud.select(null);
   }
 
   clearEntities() {
@@ -102,8 +238,37 @@ export class Game {
 
   gameOver() {
     this.phase = 'gameover';
-    this.hud.setGameoverStats(this.waves.waveIndex + 1, this.waves.totalWaves);
+    this.sound.lose();
+    let endlessLine = '';
+    if (this.endless) {
+      const wave = this.waves.waveIndex + 1;
+      const isRecord = recordEndlessBest(this.progress, wave);
+      endlessLine = isRecord
+        ? `🏆 NEUER REKORD: Welle ${wave}!`
+        : `Erreicht: Welle ${wave} (Rekord: ${this.progress.endlessBest})`;
+      this.hud.refreshMeta(this.progress, LEVELS);
+    }
+    this.hud.setGameoverStats(this.waves.waveIndex + 1, this.waves.totalWaves, endlessLine);
+    this.hud.setEndStats('gameover', this.buildStatsSummary());
     this.hud.showScreen('gameover');
+  }
+
+  // Level-Statistik für die End-Screens
+  buildStatsSummary() {
+    const entries = Object.entries(this.stats.damageByTower);
+    let mvp = null;
+    if (entries.length > 0) {
+      entries.sort((a, b) => b[1] - a[1]);
+      const [id, dmg] = entries[0];
+      const name = id === 'orbital' ? 'Orbitalschlag' : (DEFENDER_TYPES[id]?.name ?? id);
+      mvp = `${name} (${Math.round(dmg)} Schaden)`;
+    }
+    return {
+      kills: this.stats.kills,
+      energy: this.stats.energyCollected,
+      built: this.stats.built,
+      mvp,
+    };
   }
 
   win() {
@@ -111,8 +276,11 @@ export class Game {
     this.phase = 'winAnim';
     this.winAnimT = 0;
     this.fireworkTimer = 0;
+    this.sound.win();
     this.hud.showBanner('SEKTOR GESICHERT!', LEVELS[this.currentLevel].name);
     this.pendingUnlocks = unlockAfterWin(this.progress, this.currentLevel, LEVELS.length);
+    this.winStars = starsForIntegrity(this.integrity);
+    recordStars(this.progress, this.currentLevel, this.winStars);
     this.hud.refreshMeta(this.progress, LEVELS);
   }
 
@@ -131,16 +299,24 @@ export class Game {
     }
     if (this.winAnimT >= 3.4) {
       this.phase = 'win';
-      this.hud.showWinScreen(this.pendingUnlocks, LEVELS, this.currentLevel);
+      this.hud.showWinScreen(this.pendingUnlocks, LEVELS, this.currentLevel, this.winStars);
+      this.hud.setEndStats('win', this.buildStatsSummary());
     }
   }
 
   // ---------- Spawning ----------
 
-  spawnEnemy(type, lane) {
-    const enemy = new Enemy(ENEMY_TYPES[type], lane);
+  spawnEnemy(type, lane, elite = false) {
+    const enemy = new Enemy(ENEMY_TYPES[type], lane, { elite });
     this.world.scene.add(enemy.group);
     this.enemies.push(enemy);
+    // Boss-Auftritt: Warnung mit Shake, Vignette und Klaxon
+    if (enemy.data.isBoss) {
+      this.shakeT = 0.5;
+      this.hud.flashVignette();
+      this.sound.bossWarn();
+      this.particles.shockwave(enemy.position.clone().add(new THREE.Vector3(0, 2, 0)), 0xff4dd2, 6);
+    }
   }
 
   spawnMinion(type, lane, x) {
@@ -191,6 +367,29 @@ export class Game {
       if (ev.key === 'Escape') {
         this.hud.select(null);
         this.hud.hideBuildMenu();
+        return;
+      }
+      if (this.phase !== 'playing') return;
+      // Hotkeys: 1-8 Gebäude, R Recycler, Q Orbitalschlag, Leertaste Welle, P Pause, F Tempo
+      const k = ev.key.toLowerCase();
+      if (k >= '1' && k <= '8') {
+        const typeId = DEFENDER_ORDER[Number(k) - 1];
+        if (typeId && this.progress.towers.includes(typeId)) {
+          this.hud.select(this.selectedType === typeId ? null : typeId);
+          this.sound.ui();
+        }
+      } else if (k === 'r') {
+        this.hud.select(this.selectedType === 'recycler' ? null : 'recycler');
+        this.sound.ui();
+      } else if (k === 'q') {
+        this.armOrbital();
+      } else if (k === ' ') {
+        ev.preventDefault();
+        this.skipWave();
+      } else if (k === 'p') {
+        this.togglePause();
+      } else if (k === 'f') {
+        this.toggleSpeed();
       }
     });
     // Drag & Drop aus der Einheiten-Leiste
@@ -256,7 +455,14 @@ export class Game {
   onPointerMove(ev) {
     if (this.phase !== 'playing') return;
     const cell = this.pickCell(ev);
-    if (cell && this.selectedType === 'recycler') {
+    this.updateRangePreview(cell);
+    this.updateHoverInfo(cell, ev);
+    if (cell && this.selectedType === 'orbital') {
+      this.highlight.visible = true;
+      this.highlight.position.x = colX(cell.col);
+      this.highlight.position.z = laneZ(cell.lane);
+      this.highlight.material.color.set(0xFFD23F);
+    } else if (cell && this.selectedType === 'recycler') {
       // Recycler: nur belegte Zellen markieren
       const defender = this.grid[cell.lane][cell.col];
       this.highlight.visible = !!defender;
@@ -276,6 +482,43 @@ export class Game {
     }
   }
 
+  // Reichweiten-Vorschau: Kreis für Radial-Wirkung, Lane-Streifen für Schützen
+  updateRangePreview(cell) {
+    this.rangeCircle.visible = false;
+    this.rangeStripe.visible = false;
+    if (!cell) return;
+    const data = this.selectedType ? DEFENDER_TYPES[this.selectedType] : null;
+    const occupant = this.grid[cell.lane][cell.col];
+    // beim Platzieren: Reichweite des gewählten Typs; sonst des Gebäudes unterm Cursor
+    const src = data ?? occupant?.data;
+    const range = occupant && !data ? occupant.range : src?.range;
+    if (!src || !range) return;
+    const x = colX(cell.col), z = laneZ(cell.lane);
+    if (src.behavior === 'shooter') {
+      this.rangeStripe.visible = true;
+      this.rangeStripe.scale.set(range, 3.9, 1);
+      this.rangeStripe.position.set(x + range / 2, 0.08, z);
+    } else if (src.behavior === 'pulse' || src.behavior === 'slower' || src.behavior === 'healer') {
+      this.rangeCircle.visible = true;
+      this.rangeCircle.scale.set(range * 2, range * 2, 1);
+      this.rangeCircle.position.set(x, 0.08, z);
+    }
+  }
+
+  // Hover-Kurzinfo über platzierten Gebäuden
+  updateHoverInfo(cell, ev) {
+    const occupant = cell ? this.grid[cell.lane][cell.col] : null;
+    if (occupant && !this.drag && this.hud.el.buildMenu.classList.contains('hidden')) {
+      if (this.hoverTarget !== occupant) {
+        this.hoverTarget = occupant;
+        this.hud.showPlacedTooltip(occupant, ev.clientX, ev.clientY);
+      }
+    } else if (this.hoverTarget) {
+      this.hoverTarget = null;
+      if (this.sellCandidate === null || this.sellCandidate === undefined) this.hud.hideTooltip();
+    }
+  }
+
   onLeftClick(ev) {
     if (this.phase !== 'playing') return;
     this.updateRaycaster(ev);
@@ -285,6 +528,7 @@ export class Game {
     const powerup = this.powerups.tryCollect(this.raycaster);
     if (powerup) {
       this.applyPowerup(powerup.type, powerup.position);
+      this.sound.powerup();
       return;
     }
 
@@ -293,20 +537,28 @@ export class Game {
     if (collected) {
       const value = collected.value + (this.progress.skills.includes('ladekerne') ? 10 : 0);
       this.energy += value;
+      this.stats.energyCollected += value;
       this.hud.setEnergy(this.energy, true);
       this.particles.burstCrystal(collected.position);
       this.hud.floatText(ev.clientX, ev.clientY, `+${value}`);
+      this.sound.collect();
       return;
     }
 
     this.handleFieldAction(ev);
   }
 
-  // Recycler / Ausbau-Menü / Platzierung — genutzt von Klick UND Drag & Drop
+  // Recycler / Orbitalschlag / Ausbau-Menü / Platzierung — Klick UND Drag & Drop
   handleFieldAction(ev) {
     const cell = this.pickCell(ev);
     if (!cell) return;
     const occupant = this.grid[cell.lane][cell.col];
+
+    // Orbitalschlag-Zielmodus
+    if (this.selectedType === 'orbital') {
+      this.fireOrbital(cell);
+      return;
+    }
 
     // Recycler-Werkzeug: Gebäude abreißen
     if (this.selectedType === 'recycler') {
@@ -331,11 +583,13 @@ export class Game {
     this.defenders.push(defender);
     this.grid[cell.lane][cell.col] = defender;
     this.energy -= data.cost;
+    this.stats.built++;
     // Skill "Schnell-Kühlung": Abklingzeiten -25 %
     const cdFactor = this.progress.skills.includes('schnellkuehlung') ? 0.75 : 1;
     this.cooldowns[data.id] = data.cooldown * cdFactor;
     this.hud.setEnergy(this.energy);
     this.particles.burstImpact(defender.position.clone().add(new THREE.Vector3(0, 1, 0)));
+    this.sound.place();
   }
 
   sellDefender(defender, screenX, screenY) {
@@ -345,6 +599,7 @@ export class Game {
     this.hud.floatText(screenX, screenY, `+${refund}`);
     this.particles.burstImpact(defender.position.clone().add(new THREE.Vector3(0, 1.5, 0)), 0xff8a5c);
     this.removeDefender(defender);
+    this.sound.sell();
   }
 
   openBuildMenu(defender, x, y) {
@@ -357,6 +612,7 @@ export class Game {
         this.hud.setEnergy(this.energy, true);
         this.particles.burstImpact(defender.position.clone().add(new THREE.Vector3(0, 2.4, 0)), 0xffd23f);
         this.particles.shockwave(defender.position.clone().add(new THREE.Vector3(0, 1, 0)), 0xffd23f, 3);
+        this.sound.upgrade();
         // Menü mit frischen Werten neu zeichnen
         this.openBuildMenu(defender, x, y);
       },
@@ -424,17 +680,32 @@ export class Game {
 
   loop() {
     requestAnimationFrame(this.loop);
-    const dt = Math.min(this.clock.getDelta(), 0.05);
+    const rawDt = Math.min(this.clock.getDelta(), 0.05);
+    // Pause friert das Spiel ein, ×2-Tempo beschleunigt es
+    const dt = this.paused ? 0 : rawDt * this.timeScale;
     this.elapsed += dt;
     const time = this.elapsed;
 
-    this.world.updateEnvironment(dt, time);
+    this.world.updateEnvironment(rawDt, time); // Hintergrund lebt immer weiter
     this.particles.update(dt);
 
     if (this.phase === 'playing') {
       this.update(dt, time);
     } else if (this.phase === 'winAnim') {
-      this.updateWinAnim(dt);
+      this.updateWinAnim(rawDt);
+    }
+
+    // Screen-Shake (Durchbruch, Boss-Auftritt)
+    if (this.shakeT > 0) {
+      this.shakeT = Math.max(0, this.shakeT - rawDt);
+      const k = this.shakeT * 0.5;
+      this.world.camera.position.set(
+        this.camBase.x + (Math.random() - 0.5) * k,
+        this.camBase.y + (Math.random() - 0.5) * k * 0.6,
+        this.camBase.z + (Math.random() - 0.5) * k
+      );
+    } else if (!this.world.camera.position.equals(this.camBase)) {
+      this.world.camera.position.copy(this.camBase);
     }
 
     this.world.composer.render();
@@ -445,12 +716,35 @@ export class Game {
       enemies: this.enemies,
       defenders: this.defenders,
       particles: this.particles,
+      sfx: this.sound,
       overcharged: time < this.buffs.overchargeUntil,
+      recordDamage: (id, dmg) => {
+        this.stats.damageByTower[id] = (this.stats.damageByTower[id] ?? 0) + dmg;
+      },
       spawnProjectile: (k, f, t, d, o) => this.spawnProjectile(k, f, t, d, o),
       spawnEnemyBolt: (f, t, d) => this.spawnEnemyBolt(f, t, d),
       spawnCrystalAt: (pos) => this.crystals.spawnAt(pos),
       spawnMinion: (type, lane, x) => this.spawnMinion(type, lane, x),
     };
+
+    // Orbitalschlag: Cooldown + verzögerte Einschläge
+    this.orbitalCooldown = Math.max(0, this.orbitalCooldown - dt);
+    for (let i = this.pendingStrikes.length - 1; i >= 0; i--) {
+      const s = this.pendingStrikes[i];
+      s.t -= dt;
+      if (s.t <= 0) {
+        this.pendingStrikes.splice(i, 1);
+        this.particles.beam(s.pos.clone().add(new THREE.Vector3(0, 0.3, 0)));
+        this.sound.orbital();
+        this.shakeT = Math.max(this.shakeT, 0.35);
+        for (const e of this.enemies) {
+          if (!e.dead && e.position.distanceTo(s.pos) <= 3.2) {
+            e.takeDamage(150, 'orbital');
+            this.stats.damageByTower.orbital = (this.stats.damageByTower.orbital ?? 0) + 150;
+          }
+        }
+      }
+    }
 
     // Cooldowns
     for (const key of Object.keys(this.cooldowns)) {
@@ -481,6 +775,10 @@ export class Game {
       if (hit && !hit.dead) {
         const impactPos = p.mesh.position.clone();
         hit.takeDamage(p.damage, p.kind);
+        if (p.sourceId) {
+          this.stats.damageByTower[p.sourceId] =
+            (this.stats.damageByTower[p.sourceId] ?? 0) + p.damage;
+        }
         if (p.splash > 0) {
           // Flächenschaden: Nachbarn am Einschlagsort mit 60 % treffen
           for (const e of this.enemies) {
@@ -514,10 +812,30 @@ export class Game {
       const e = this.enemies[i];
       if (e.dead) {
         const pos = e.position.clone().add(new THREE.Vector3(0, 1.3, 0));
-        if (e.data.kind === 'alien') {
-          this.particles.burstAlien(pos, e.data.isBoss ? 40 : 14);
+        this.stats.kills++;
+        // individuelle Todes-Effekte je Gegnertyp
+        if (e.data.id === 'panzerwalze') {
+          this.particles.armorBurst(pos);
+          this.sound.explosion(true);
+        } else if (e.data.id === 'phasenspringer') {
+          this.particles.implode(pos);
+          this.sound.teleport();
+        } else if (e.data.id === 'schwarmling') {
+          this.particles.burstAlien(pos, 5);
+          this.sound.explosion(false);
+        } else if (e.data.isBoss) {
+          this.particles.burstAlien(pos, 40);
+          this.particles.firework(pos);
+          this.particles.firework(pos.clone().add(new THREE.Vector3(2.5, 1, 0)));
+          this.particles.firework(pos.clone().add(new THREE.Vector3(-2.5, 0.5, 0)));
+          this.shakeT = Math.max(this.shakeT, 0.5);
+          this.sound.explosion(true);
+        } else if (e.data.kind === 'alien') {
+          this.particles.burstAlien(pos, 14);
+          this.sound.explosion(false);
         } else {
           this.particles.burstRock(pos, 12);
+          this.sound.explosion(false);
         }
         // Berstbrocken & Co.: zerbirst in kleinere Gegner
         if (e.data.splitInto) {
@@ -532,7 +850,12 @@ export class Game {
       } else if (e.reachedCore) {
         this.integrity -= e.data.integrityDamage;
         this.hud.setIntegrity(Math.max(0, this.integrity));
+        // Durchbruch-Drama: Shake, rote Vignette, Schockwelle am Kern
+        this.shakeT = Math.max(this.shakeT, 0.4);
+        this.hud.flashVignette();
+        this.sound.breach();
         this.particles.flash(e.position.clone().add(new THREE.Vector3(0, 1.3, 0)), 0xFF5252);
+        this.particles.shockwave(e.position.clone().add(new THREE.Vector3(1, 1, 0)), 0xff5252, 5);
         this.world.scene.remove(e.group);
         this.enemies.splice(i, 1);
         if (this.integrity <= 0) {
@@ -544,13 +867,33 @@ export class Game {
 
     // Wellen
     this.waves.update(dt, this.enemies.length);
-    if (this.waves.state === 'countdown' && !this.waves.finished) {
+    const counting = this.waves.state === 'countdown' && !this.waves.finished;
+    if (counting) {
       this.hud.setWave(this.waves.waveIndex + 1, this.waves.totalWaves, this.waves.countdown);
+      // Vorschau + Überspringen-Button während der Verschnaufpause
+      if (this.lastPreviewWave !== this.waves.waveIndex) {
+        this.lastPreviewWave = this.waves.waveIndex;
+        this.hud.showWavePreview(this.waves.peekNextWave());
+      }
+      this.hud.setSkipButton(Math.ceil(Math.max(0, this.waves.countdown) * 2));
     } else {
       this.hud.setWave(this.waves.waveIndex + 1, this.waves.totalWaves);
+      this.hud.setSkipButton(null);
+    }
+    this.hud.setWaveProgress(this.waves.levelProgress, this.endless ? this.waves.waveIndex + 1 : null);
+
+    // Boss-HP-Leiste (aggregiert, falls mehrere Bosse leben)
+    const bosses = this.enemies.filter((e) => e.data.isBoss && !e.dead);
+    if (bosses.length > 0) {
+      const hp = bosses.reduce((s, b) => s + Math.max(0, b.hp), 0);
+      const max = bosses.reduce((s, b) => s + b.maxHp, 0);
+      this.hud.showBossBar(hp / max, bosses.length, bosses.some((b) => b.isWeak));
+    } else {
+      this.hud.hideBossBar();
     }
 
-    // HUD-Karten
+    // Orbitalschlag-Button + HUD-Karten
+    this.hud.setOrbital(this.orbitalCooldown, 45, this.energy >= 100, this.selectedType === 'orbital');
     this.hud.updateCards(this.energy, this.cooldowns);
   }
 }

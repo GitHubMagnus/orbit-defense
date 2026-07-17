@@ -2,15 +2,18 @@
 // blockierende Verteidiger an, Zerstörer schießen zusätzlich auf Distanz.
 
 import * as THREE from 'three';
-import { buildEnemyMesh, spriteQuaternion } from './meshFactory.js';
+import { buildEnemyMesh, spriteQuaternion, makeEliteAura, makeHitFlash } from './meshFactory.js';
 import { SPAWN_X, CORE_X, laneZ } from '../data/config.js';
 
 export class Enemy {
-  constructor(data, lane) {
+  constructor(data, lane, opts = {}) {
     this.data = data;
     this.lane = lane;
-    this.hp = data.hp;
-    this.maxHp = data.hp;
+    this.elite = !!opts.elite; // verstärkte Variante mit Gold-Aura
+    const hpMul = this.elite ? 2.2 : 1;
+    this.speedMul = this.elite ? 1.15 : 1;
+    this.hp = Math.round(data.hp * hpMul);
+    this.maxHp = this.hp;
     this.dead = false;
     this.reachedCore = false;
     this.slowFactor = 0;       // wird pro Frame von Traktorstrahlen gesetzt
@@ -23,8 +26,28 @@ export class Enemy {
     const built = buildEnemyMesh(data.id);
     this.group = built.group;
     this.animateMesh = built.animate;
-    this.group.scale.setScalar(data.scale);
+    this.setWeakFn = built.setWeak ?? null;
+    this.group.scale.setScalar(data.scale * (this.elite ? 1.15 : 1));
     this.group.position.set(SPAWN_X, 0, laneZ(lane));
+
+    // Elite-Markierung: pulsierende Gold-Aura mit Krone
+    if (this.elite) {
+      this.eliteAura = makeEliteAura(3.4);
+      this.eliteAura.quaternion.copy(spriteQuaternion());
+      this.eliteAura.position.y = 1.6;
+      this.group.add(this.eliteAura);
+    }
+
+    // Treffer-Blitz (kurz sichtbar bei Schaden)
+    this.hitFlash = makeHitFlash(2.6);
+    this.hitFlash.quaternion.copy(spriteQuaternion());
+    this.hitFlash.position.y = 1.5;
+    this.group.add(this.hitFlash);
+    this.flashT = 0;
+
+    // Boss-Schwächephase: Zyklus geschlossen (9 s) -> offen (3.5 s, 2x Schaden)
+    this.isWeak = false;
+    this.weakCycleT = 0;
 
     // HP-Balken (zur festen Kamera orientiert)
     this.hpBar = makeHpBar();
@@ -41,7 +64,10 @@ export class Enemy {
   takeDamage(amount, source) {
     const resist = source ? this.data.resist?.[source] : undefined;
     if (resist !== undefined) amount *= resist;
+    if (this.isWeak) amount *= 2; // Boss-Schwächephase: Schlund offen
     this.hp -= amount;
+    this.flashT = 0.08;
+    this.hitFlash.visible = true;
     if (this.hp <= 0) {
       this.dead = true;
     } else {
@@ -55,10 +81,36 @@ export class Enemy {
   update(dt, time, ctx) {
     this.animateMesh(dt, time);
 
+    // Treffer-Blitz ausblenden
+    if (this.flashT > 0) {
+      this.flashT -= dt;
+      if (this.flashT <= 0) this.hitFlash.visible = false;
+    }
+
+    // Elite-Aura pulsiert
+    if (this.eliteAura) {
+      this.eliteAura.material.opacity = 0.6 + Math.sin(time * 5) * 0.3;
+    }
+
+    // Boss-Schwächephase takten
+    if (this.data.isBoss) {
+      this.weakCycleT += dt;
+      if (!this.isWeak && this.weakCycleT >= 9) {
+        this.isWeak = true;
+        this.weakCycleT = 0;
+        this.setWeakFn?.(true);
+        ctx.particles.shockwave(this.position.clone().add(new THREE.Vector3(0, 2, 0)), 0xaefc4b, 5);
+      } else if (this.isWeak && this.weakCycleT >= 3.5) {
+        this.isWeak = false;
+        this.weakCycleT = 0;
+        this.setWeakFn?.(false);
+      }
+    }
+
     if (time < this.empUntil) {
       this.slowFactor = Math.max(this.slowFactor, 0.85); // EMP: fast stillgelegt
     }
-    const speed = this.data.speed * (1 - this.slowFactor);
+    const speed = this.data.speed * this.speedMul * (1 - this.slowFactor);
     this.slowFactor = 0; // wird jeden Frame neu gesetzt
 
     // Blockierenden Verteidiger direkt vor uns suchen (gleiche Lane, Nahbereich)

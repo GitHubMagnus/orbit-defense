@@ -134,6 +134,168 @@ html, body {
 }
 .integrity-seg.lost { background: rgba(255, 82, 82, 0.18); box-shadow: none; }
 
+/* ---------- Steuer-Buttons (Pause / Tempo / Ton) ---------- */
+#controls-panel { gap: 6px; padding: 6px 10px; pointer-events: auto; }
+.ctrl-btn {
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 229, 255, 0.08);
+  border: 1px solid rgba(77, 208, 225, 0.4);
+  border-radius: 6px;
+  color: var(--cyan-pale);
+  font-size: 0.95rem; font-family: inherit; font-weight: 700;
+  cursor: pointer; transition: all 0.15s ease;
+}
+.ctrl-btn:hover { background: rgba(0, 229, 255, 0.2); }
+.ctrl-btn.active { background: rgba(255, 210, 63, 0.2); border-color: #ffd23f; color: #ffd23f; }
+
+/* ---------- Wellen-Fortschrittsleiste ---------- */
+#wave-bar {
+  position: absolute; top: 74px; left: 50%;
+  transform: translateX(-50%);
+  width: min(520px, 72vw); height: 10px;
+  background: rgba(8, 20, 34, 0.8);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+}
+#wave-bar.endless { display: none; }
+#wave-bar-fill {
+  height: 100%; width: 0;
+  background: linear-gradient(90deg, #1fb9d9, #7df3ff);
+  border-radius: 5px;
+  transition: width 0.4s ease;
+}
+#wave-bar-flags { position: absolute; inset: 0; pointer-events: none; }
+.wave-flag {
+  position: absolute; top: -7px;
+  transform: translateX(-100%);
+  font-size: 0.7rem;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8));
+}
+
+/* ---------- Boss-HP-Leiste ---------- */
+#boss-bar {
+  position: absolute; top: 94px; left: 50%;
+  transform: translateX(-50%);
+  width: min(460px, 66vw);
+  display: flex; flex-direction: column; gap: 3px;
+  align-items: center;
+}
+#boss-bar-label {
+  font-size: 0.72rem; letter-spacing: 0.12em;
+  color: #ff9bd0; text-shadow: 0 0 8px rgba(255, 77, 210, 0.6);
+}
+#boss-bar-track {
+  width: 100%; height: 12px;
+  background: rgba(20, 5, 25, 0.85);
+  border: 1px solid rgba(255, 77, 210, 0.55);
+  border-radius: 6px; overflow: hidden;
+}
+#boss-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #7b1fa2, #ff4dd2);
+  transition: width 0.25s ease;
+}
+#boss-bar.weak #boss-bar-label { color: #d3ff9a; text-shadow: 0 0 10px rgba(174, 252, 75, 0.8); }
+#boss-bar.weak #boss-bar-fill { background: linear-gradient(90deg, #3f9c3f, #aefc4b); }
+
+/* ---------- Wellen-Vorschau & Überspringen ---------- */
+#wave-preview {
+  position: absolute; top: 118px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; gap: 8px; align-items: center;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px; padding: 5px 12px;
+}
+.wp-label { font-size: 0.7rem; letter-spacing: 0.08em; opacity: 0.8; }
+.wp-item { display: flex; align-items: center; gap: 2px; font-size: 0.78rem; color: var(--cyan-pale); }
+.wp-item img { width: 26px; height: 26px; object-fit: contain; }
+
+#skip-wave-btn {
+  position: absolute; top: 162px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 5px;
+  pointer-events: auto;
+  padding: 7px 16px;
+  background: rgba(255, 210, 63, 0.12);
+  border: 1px solid rgba(255, 210, 63, 0.55);
+  border-radius: 20px;
+  color: #ffe082; font-family: inherit; font-size: 0.82rem; font-weight: 600;
+  cursor: pointer; transition: all 0.15s ease;
+}
+#skip-wave-btn:hover { background: rgba(255, 210, 63, 0.28); box-shadow: 0 0 14px rgba(255, 210, 63, 0.35); }
+#skip-wave-btn svg { width: 13px; height: 13px; }
+
+/* ---------- Orbitalschlag-Button ---------- */
+#orbital-btn {
+  position: absolute; bottom: 130px; right: 18px;
+  width: 62px; height: 62px;
+  pointer-events: auto;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 210, 63, 0.35);
+  background:
+    conic-gradient(rgba(255, 210, 63, 0.28) var(--cd, 100%), rgba(20, 30, 55, 0.5) 0),
+    var(--panel-bg);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; opacity: 0.65;
+  transition: box-shadow 0.2s ease, opacity 0.2s ease;
+}
+#orbital-btn svg { width: 34px; height: 34px; }
+#orbital-btn.ready { opacity: 1; border-color: #ffd23f; box-shadow: 0 0 16px rgba(255, 210, 63, 0.45); }
+#orbital-btn.armed { border-color: #fff; box-shadow: 0 0 24px rgba(255, 240, 160, 0.8); }
+
+/* ---------- Pause & Treffer-Vignette ---------- */
+#pause-overlay {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(4, 8, 20, 0.55);
+  z-index: 28; pointer-events: none;
+}
+#pause-overlay span {
+  font-size: 3rem; letter-spacing: 0.5em;
+  color: var(--cyan-bright);
+  text-shadow: 0 0 24px rgba(0, 229, 255, 0.6);
+}
+#hit-vignette {
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 26; opacity: 0;
+  background: radial-gradient(ellipse at center, rgba(255,0,40,0) 55%, rgba(255, 30, 60, 0.45) 100%);
+}
+#hit-vignette.active { animation: vignettePulse 0.55s ease-out; }
+@keyframes vignettePulse {
+  0% { opacity: 0; } 25% { opacity: 1; } 100% { opacity: 0; }
+}
+
+/* ---------- End-Statistik & Sterne ---------- */
+.end-stats { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; max-width: 620px; }
+.stat-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 12px;
+  background: rgba(0, 229, 255, 0.08);
+  border: 1px solid rgba(77, 208, 225, 0.35);
+  border-radius: 16px;
+  font-size: 0.78rem; color: var(--cyan-pale);
+}
+.stat-chip svg { width: 12px; height: 12px; }
+.stat-chip.mvp { border-color: rgba(255, 210, 63, 0.5); background: rgba(255, 210, 63, 0.1); color: #ffe082; }
+
+#win-stars { display: flex; gap: 10px; }
+.win-star {
+  font-size: 3rem; color: rgba(255, 255, 255, 0.15);
+  transform: scale(0);
+  animation: starPop 0.5s cubic-bezier(0.2, 1.8, 0.4, 1) forwards;
+}
+.win-star.earned { color: #ffd23f; text-shadow: 0 0 18px rgba(255, 210, 63, 0.8); }
+@keyframes starPop {
+  from { transform: scale(0) rotate(-30deg); }
+  to { transform: scale(1) rotate(0); }
+}
+.btn-stars { display: block; font-size: 0.8rem; color: #ffd23f; letter-spacing: 0.2em; margin-top: 2px; }
+.btn-stars .star-empty { opacity: 0.25; }
+.level-btn.endless-btn { border-color: rgba(255, 77, 210, 0.5); }
+.level-btn.endless-btn:not(.locked):hover { box-shadow: 0 0 22px rgba(255, 77, 210, 0.45); }
+
 /* ---------- Wellen-Banner ---------- */
 #wave-banner {
   position: absolute; top: 20%; left: 50%;

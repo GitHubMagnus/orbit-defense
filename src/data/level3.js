@@ -5,6 +5,11 @@ function entry(t, type, lane) {
   return { t, type, lane };
 }
 
+// Elite-Variante: doppelte Hülle, schneller, mit Gold-Aura markiert
+function elite(t, type, lane) {
+  return { t, type, lane, elite: true };
+}
+
 export const LEVEL_3 = {
   name: 'Sektor Abyss',
   waves: [
@@ -159,7 +164,7 @@ export const LEVEL_3 = {
         entry(12, 'berstbrocken', 3),
         entry(15, 'panzerwalze', 0),
         entry(18, 'schwarmling', 2), entry(18.5, 'schwarmling', 2),
-        entry(21, 'phasenspringer', 4),
+        elite(21, 'phasenspringer', 4),
         entry(24, 'alienDrohne', 1),
       ],
     },
@@ -170,11 +175,11 @@ export const LEVEL_3 = {
       entries: [
         entry(0, 'phasenspringer', 0),
         entry(1, 'phasenspringer', 4),
-        entry(4, 'panzerwalze', 2),
+        elite(4, 'panzerwalze', 2),
         entry(7, 'schwarmling', 1), entry(7.4, 'schwarmling', 1),
         entry(7.8, 'schwarmling', 3), entry(8.2, 'schwarmling', 3),
         entry(11, 'berstbrocken', 0), entry(12, 'berstbrocken', 4),
-        entry(15, 'alienZerstoerer', 1),
+        elite(15, 'alienZerstoerer', 1),
         entry(17, 'alienZerstoerer', 3),
         entry(21, 'phasenspringer', 2),
         entry(24, 'schwarmling', 0), entry(24.4, 'schwarmling', 4),
@@ -189,8 +194,8 @@ export const LEVEL_3 = {
         entry(4, 'mutterschiffFragment', 2),
         entry(8, 'panzerwalze', 1),
         entry(12, 'panzerwalze', 3),
-        entry(16, 'phasenspringer', 0),
-        entry(18, 'phasenspringer', 4),
+        elite(16, 'phasenspringer', 0),
+        elite(18, 'phasenspringer', 4),
         entry(22, 'alienZerstoerer', 2),
         entry(26, 'berstbrocken', 0),
         entry(27, 'berstbrocken', 4),

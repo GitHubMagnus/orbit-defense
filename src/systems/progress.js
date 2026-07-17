@@ -42,6 +42,8 @@ function defaultProgress() {
     levelsUnlocked: 1,
     towers: [...STARTER_TOWERS],
     skills: [],
+    stars: {},        // Level-Index -> 1..3 Sterne (bester Lauf)
+    endlessBest: 0,   // höchste erreichte Ansturm-Welle
   };
 }
 
@@ -54,10 +56,36 @@ export function loadProgress() {
       levelsUnlocked: Math.max(1, p.levelsUnlocked ?? 1),
       towers: Array.isArray(p.towers) && p.towers.length ? p.towers : [...STARTER_TOWERS],
       skills: Array.isArray(p.skills) ? p.skills : [],
+      stars: p.stars && typeof p.stars === 'object' ? p.stars : {},
+      endlessBest: p.endlessBest ?? 0,
     };
   } catch {
     return defaultProgress();
   }
+}
+
+// Sterne-Bewertung nach Rest-Integrität (bester Lauf wird gespeichert)
+export function starsForIntegrity(integrity) {
+  return integrity >= 8 ? 3 : integrity >= 4 ? 2 : 1;
+}
+
+export function recordStars(progress, levelIndex, stars) {
+  const prev = progress.stars[levelIndex] ?? 0;
+  if (stars > prev) {
+    progress.stars[levelIndex] = stars;
+    saveProgress(progress);
+    return true;
+  }
+  return false;
+}
+
+export function recordEndlessBest(progress, wave) {
+  if (wave > progress.endlessBest) {
+    progress.endlessBest = wave;
+    saveProgress(progress);
+    return true;
+  }
+  return false;
 }
 
 export function saveProgress(progress) {

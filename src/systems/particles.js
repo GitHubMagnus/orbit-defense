@@ -145,6 +145,58 @@ export class ParticleSystem {
     });
   }
 
+  // kleiner Mündungsblitz beim Abfeuern
+  muzzle(pos, color = 0x7df3ff) {
+    this.burst(pos, {
+      count: 2, tex: starTex(), additive: true,
+      colors: [color, 0xffffff], speed: 2, life: 0.16, size: 0.55,
+    });
+  }
+
+  // Orbitalschlag: senkrechter Lichtstrahl + Einschlag
+  beam(pos, color = 0xbff3ff) {
+    const sprite = this.spawnSprite(circleTex(), color, true, pos.clone().add(new THREE.Vector3(0, 5.5, 0)));
+    sprite.scale.set(1.6, 12, 1);
+    this.particles.push({
+      sprite, vel: new THREE.Vector3(),
+      life: 0.45, maxLife: 0.45, stretch: true, baseSize: 1,
+    });
+    this.flash(pos, 0xffffff);
+    this.shockwave(pos, color, 6);
+    this.burst(pos, {
+      count: 14, tex: starTex(), additive: true,
+      colors: [color, 0xffffff, 0xffd23f], speed: 8, life: 0.6, size: 0.6, up: 1.6,
+    });
+  }
+
+  // Implosion (Phasenspringer): Funken stürzen nach innen
+  implode(pos, color = 0xc26bd6) {
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      const off = new THREE.Vector3(Math.cos(a) * 1.7, (Math.random() - 0.3) * 1.4, Math.sin(a) * 1.7);
+      const sprite = this.spawnSprite(starTex(), i % 2 ? color : 0x7df3ff, true, pos.clone().add(off));
+      sprite.scale.setScalar(0.5);
+      this.particles.push({
+        sprite, vel: off.clone().multiplyScalar(-4.5),
+        life: 0.32, maxLife: 0.32, spin: 8, baseSize: 0.5,
+      });
+    }
+    this.flash(pos, 0xffffff);
+  }
+
+  // Panzerwalze: zerbricht in schwere Panzerplatten
+  armorBurst(pos) {
+    this.burst(pos, {
+      count: 8, tex: chunkTex(), additive: false,
+      colors: [0x6a3691, 0x3a4258, 0x535e7c], speed: 5, life: 1.0, size: 0.85,
+    });
+    this.burst(pos, {
+      count: 6, tex: starTex(), additive: true,
+      colors: [0xaefc4b, 0xc26bd6], speed: 7, life: 0.4, size: 0.55,
+    });
+    this.shockwave(pos, 0x8e5bb0, 4.5);
+  }
+
   // Sieges-Feuerwerk: bunter Sternenregen + Schockring + Blitz
   firework(pos) {
     const palettes = [
@@ -189,7 +241,9 @@ export class ParticleSystem {
       const t = p.life / p.maxLife;
       p.sprite.position.addScaledVector(p.vel, dt);
       p.sprite.material.opacity = t;
-      if (p.grow) {
+      if (p.stretch) {
+        // nicht-uniforme Sprites (z. B. Orbital-Strahl): nur ausblenden
+      } else if (p.grow) {
         p.sprite.scale.addScalar(p.grow * dt);
       } else {
         p.sprite.scale.setScalar(p.baseSize * (0.3 + t * 0.7));

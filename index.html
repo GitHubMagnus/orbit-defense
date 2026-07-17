@@ -31,12 +31,31 @@
         <span class="integrity-title">Stations-Integrität</span>
         <div id="integrity-segments"></div>
       </div>
+      <div id="controls-panel" class="hud-panel">
+        <button id="pause-btn" class="ctrl-btn" title="Pause (P)">⏸</button>
+        <button id="speed-btn" class="ctrl-btn" title="Spieltempo (F)">×1</button>
+        <button id="mute-btn" class="ctrl-btn" title="Ton an/aus">🔊</button>
+      </div>
     </div>
+    <div id="wave-bar"><div id="wave-bar-fill"></div><div id="wave-bar-flags"></div></div>
+    <div id="boss-bar" class="hidden">
+      <div id="boss-bar-label"></div>
+      <div id="boss-bar-track"><div id="boss-bar-fill"></div></div>
+    </div>
+    <div id="wave-preview" class="hidden"></div>
+    <button id="skip-wave-btn" class="hidden"></button>
+    <button id="orbital-btn" title="Orbitalschlag (Q)">
+      <svg viewBox="0 0 40 40"><polygon points="20,3 24,15 37,15 26.5,22.5 30.5,35 20,27 9.5,35 13.5,22.5 3,15 16,15" fill="#ffd23f" stroke="#7a4d00" stroke-width="1.6" stroke-linejoin="round"/><line x1="20" y1="8" x2="20" y2="24" stroke="#7a4d00" stroke-width="2.4" stroke-linecap="round"/></svg>
+    </button>
     <div id="wave-banner" class="hidden"></div>
+    <div id="pause-overlay" class="hidden"><span>PAUSE</span></div>
     <div id="bottom-bar"></div>
     <div id="tooltip" class="hidden"></div>
     <div id="build-menu" class="hidden"></div>
   </div>
+
+  <!-- roter Puls am Bildschirmrand bei Integritätsverlust -->
+  <div id="hit-vignette"></div>
 
   <!-- Start-Screen -->
   <div id="start-screen" class="screen">
@@ -72,6 +91,7 @@
     <h1 class="game-title danger">DIE STATION WURDE ÜBERRANNT</h1>
     <p class="story-text">Der Reaktorkern ist gefallen. Die Helios-Warte treibt dunkel im Orbit.</p>
     <p id="gameover-stats" class="story-text"></p>
+    <div id="gameover-endstats" class="end-stats"></div>
     <div class="btn-row">
       <button id="retry-btn" class="level-btn">Erneut versuchen</button>
       <button class="level-btn to-level-select">Zur Levelauswahl</button>
@@ -81,7 +101,9 @@
   <!-- Sieg-Screen -->
   <div id="win-screen" class="screen hidden">
     <h1 class="game-title victory">SEKTOR GESICHERT!</h1>
+    <div id="win-stars"></div>
     <p class="story-text">Alle Wellen abgewehrt. Die Helios-Warte leuchtet weiter über Nereon.</p>
+    <div id="win-stats" class="end-stats"></div>
     <div id="win-unlocks"></div>
     <div class="btn-row">
       <button id="win-restart-btn" class="level-btn">Nochmal spielen</button>

@@ -26,6 +26,7 @@ export class Defender {
     this.pulseTimer = data.pulseInterval ? data.pulseInterval * 0.5 : 0;
     this.healFxTimer = 0;
     this.sparkTimer = 0;
+    this.recoilT = 0; // kurzer Rückstoß-Hüpfer nach dem Schuss
 
     const built = buildDefenderMesh(data.id);
     this.group = built.group;
@@ -144,6 +145,15 @@ export class Defender {
   update(dt, time, ctx) {
     this.animateMesh(dt, time);
 
+    // Rückstoß-Feedback: kurzer Squash nach jedem Schuss
+    if (this.recoilT > 0) {
+      this.recoilT = Math.max(0, this.recoilT - dt);
+      const k = this.recoilT / 0.15;
+      this.group.scale.set(1 + 0.06 * k, 1 - 0.06 * k, 1);
+    } else if (this.group.scale.x !== 1) {
+      this.group.scale.set(1, 1, 1);
+    }
+
     // schwer beschädigt: gelegentlich Funken sprühen
     if (this.hp / this.maxHp <= 1 / 3) {
       this.sparkTimer -= dt;
@@ -166,7 +176,15 @@ export class Defender {
         const muzzle = this.position.clone().add(
           this.group.userData.muzzleOffset ?? new THREE.Vector3(0, 1.8, 0)
         );
-        ctx.spawnProjectile(d.projectile, muzzle, target, this.damage, { splash: d.splash });
+        ctx.spawnProjectile(d.projectile, muzzle, target, this.damage, {
+          splash: d.splash, sourceId: d.id,
+        });
+        // Feuer-Feedback: Rückstoß + Mündungsblitz + Sound
+        this.recoilT = 0.15;
+        const flashColor = d.projectile === 'plasma' ? 0xff9be4
+          : d.projectile === 'rakete' ? 0xffb46b : 0x7df3ff;
+        ctx.particles.muzzle(muzzle, flashColor);
+        ctx.sfx?.shot(d.projectile);
       }
     } else if (d.behavior === 'generator') {
       this.generateTimer -= dt;
@@ -189,9 +207,12 @@ export class Defender {
         if (targets.length > 0) {
           this.pulseTimer = this.pulseInterval;
           for (const e of targets) e.takeDamage(this.damage, 'pulse');
+          ctx.recordDamage?.(d.id, this.damage * targets.length);
           const c = this.position.clone().add(new THREE.Vector3(0, 0.6, 0));
           ctx.particles.shockwave(c, 0x7df3ff, d.range * 1.6);
           ctx.particles.flash(this.position.clone().add(new THREE.Vector3(0, 2.6, 0)), 0x7df3ff);
+          this.recoilT = 0.15;
+          ctx.sfx?.shot('pulse');
         }
       }
     } else if (d.behavior === 'healer') {
