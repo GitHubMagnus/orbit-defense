@@ -453,6 +453,15 @@ html, body {
   background: rgba(120, 160, 220, 0.1); border-color: rgba(140, 180, 230, 0.4);
   color: var(--cyan-pale);
 }
+.start-tools { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.level-btn.secondary.danger {
+  border-color: rgba(255, 120, 120, 0.45); color: #ffb0b0;
+  background: rgba(255, 90, 90, 0.08);
+}
+.level-btn.secondary.danger:hover {
+  background: rgba(255, 90, 90, 0.2);
+  box-shadow: 0 0 18px rgba(255, 90, 90, 0.35);
+}
 #skill-line { font-size: 0.85rem; opacity: 0.95; }
 .skill-chip {
   display: inline-block; margin: 0 4px; padding: 4px 10px;

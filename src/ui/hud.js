@@ -169,6 +169,26 @@ export class HUD {
       this.el.lexicon.classList.add('hidden');
     });
 
+    // Fortschritt zurücksetzen mit Zwei-Klick-Bestätigung (destruktiv)
+    const resetBtn = document.getElementById('reset-btn');
+    const resetLabel = '🗑️ Fortschritt zurücksetzen';
+    resetBtn.addEventListener('click', () => {
+      if (resetBtn.dataset.confirm) {
+        clearTimeout(this._resetTimer);
+        delete resetBtn.dataset.confirm;
+        this.cb.onResetProgress();
+        resetBtn.textContent = '✓ Zurückgesetzt';
+        setTimeout(() => { resetBtn.textContent = resetLabel; }, 2000);
+      } else {
+        resetBtn.dataset.confirm = '1';
+        resetBtn.textContent = '⚠️ Wirklich? Nochmal klicken';
+        this._resetTimer = setTimeout(() => {
+          delete resetBtn.dataset.confirm;
+          resetBtn.textContent = resetLabel;
+        }, 4000);
+      }
+    });
+
     // Steuer-Buttons: Pause, Tempo, Ton, Welle überspringen, Orbitalschlag
     this.el.pauseBtn.addEventListener('click', () => this.cb.onPause());
     this.el.speedBtn.addEventListener('click', () => this.cb.onSpeed());

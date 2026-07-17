@@ -14,8 +14,8 @@ import { DEFENDER_TYPES, DEFENDER_ORDER } from './data/defenders.js';
 import { ENEMY_TYPES } from './data/enemies.js';
 import { LEVELS } from './data/levels.js';
 import {
-  loadProgress, saveProgress, unlockAfterWin, starsForIntegrity, recordStars, recordEndlessBest,
-  SKILLS,
+  loadProgress, saveProgress, resetProgress, unlockAfterWin, starsForIntegrity,
+  recordStars, recordEndlessBest, SKILLS,
 } from './systems/progress.js';
 import { Sound } from './systems/sound.js';
 import { ENDLESS_LEVEL } from './data/endless.js';
@@ -47,6 +47,7 @@ export class Game {
       onStartEndless: () => this.startLevel(-1),
       onRestart: () => this.startLevel(this.currentLevel),
       onLevelSelect: () => this.hud.showScreen('start'),
+      onResetProgress: () => this.resetProgress(),
       onDragStart: (t, ev) => this.startDrag(t, ev),
       onPause: () => this.togglePause(),
       onSpeed: () => this.toggleSpeed(),
@@ -440,7 +441,13 @@ export class Game {
 
   // ---------- Cheat-Codes (zum Ausprobieren ohne Grind) ----------
 
-  static CHEATS = ['unlockall', 'unlimitedpower'];
+  static CHEATS = ['unlockall', 'unlimitedpower', 'resetall'];
+
+  // Fortschritt auf Werkseinstellung zurücksetzen (löscht den Spielstand)
+  resetProgress() {
+    this.progress = resetProgress();
+    this.hud.refreshMeta(this.progress, LEVELS);
+  }
 
   // sieht der Puffer wie ein angefangener Cheat aus? (mind. 2 passende Zeichen)
   cheatPending() {
@@ -478,6 +485,15 @@ export class Game {
         this.hud.showBanner('CHEAT AKTIVIERT', '+10.000 Energie!');
         this.sound.powerup();
       }
+      return true;
+    }
+    if (buf.endsWith('resetall')) {
+      this.cheatBuffer = '';
+      this.resetProgress();
+      if (this.phase === 'playing') {
+        this.hud.showBanner('FORTSCHRITT ZURÜCKGESETZT', 'Alles wieder gesperrt.');
+      }
+      this.sound.ui();
       return true;
     }
     return false;

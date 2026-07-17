@@ -96,6 +96,16 @@ export function saveProgress(progress) {
   }
 }
 
+// Setzt den Fortschritt auf Werkseinstellung zurück (löscht den Spielstand).
+export function resetProgress() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // ignorieren
+  }
+  return defaultProgress();
+}
+
 // Wendet die Belohnungen eines Levelsiegs an; liefert die NEUEN Freischaltungen
 // als { levels: [...], towers: [...], skills: [...] } für die Sieg-Anzeige.
 export function unlockAfterWin(progress, levelIndex, totalLevels) {
