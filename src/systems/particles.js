@@ -51,6 +51,23 @@ export class ParticleSystem {
   constructor(scene) {
     this.scene = scene;
     this.particles = [];
+    this.lines = [];
+  }
+
+  // leuchtender Strahl/Bogen zwischen zwei Punkten (Kettenblitz, Railkanone)
+  arc(from, to, color = 0x9be8ff, life = 0.18, radius = 0.09) {
+    const dir = to.clone().sub(from);
+    const len = dir.length();
+    if (len < 0.01) return;
+    const geo = new THREE.CylinderGeometry(radius, radius, len, 6, 1, true);
+    const mat = new THREE.MeshBasicMaterial({
+      color, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(from).addScaledVector(dir, 0.5);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+    this.scene.add(mesh);
+    this.lines.push({ mesh, life, maxLife: life });
   }
 
   spawnSprite(tex, color, additive, pos) {
@@ -273,6 +290,19 @@ export class ParticleSystem {
       } else {
         p.sprite.scale.setScalar(p.baseSize * (0.3 + t * 0.7));
         p.sprite.material.rotation += (p.spin ?? 0) * dt;
+      }
+    }
+    // Strahl-/Bogen-Effekte ausblenden
+    for (let i = this.lines.length - 1; i >= 0; i--) {
+      const l = this.lines[i];
+      l.life -= dt;
+      if (l.life <= 0) {
+        this.scene.remove(l.mesh);
+        l.mesh.geometry.dispose();
+        l.mesh.material.dispose();
+        this.lines.splice(i, 1);
+      } else {
+        l.mesh.material.opacity = (l.life / l.maxLife) * 0.95;
       }
     }
   }

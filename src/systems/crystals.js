@@ -163,4 +163,12 @@ export class CrystalSystem {
     }
     return null;
   }
+
+  // alle Blitze auf einmal einsammeln (Magnet-Power-up); liefert deren Werte + Positionen
+  collectAll() {
+    const out = this.crystals.map((c) => ({ value: c.value, position: c.group.position.clone() }));
+    for (const c of this.crystals) this.scene.remove(c.group);
+    this.crystals = [];
+    return out;
+  }
 }

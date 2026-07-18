@@ -149,6 +149,39 @@ function drawChevron(ctx) {
 // Ausbauten verändern das Modell sichtbar: das Gebäude wächst, bekommt ab
 // Stufe 2 eine goldene Energie-Plattform und ab Stufe 3 eine leuchtende Aura.
 // Liefert { setDamage(stufe 0-2), setLevel(1-3) } für die Defender-Klasse.
+// rotes Schaden-Modul (Kraft-Pfad upA): kantiger Panzer-Aufsatz mit Glutkern
+function drawPowerModule(ctx) {
+  ctx.fillStyle = '#3a1418';
+  rr(ctx, 20, 24, 56, 56, 12); ctx.fill();
+  ctx.strokeStyle = '#1b2447'; ctx.lineWidth = 7; ctx.lineJoin = 'round'; ctx.stroke();
+  ctx.fillStyle = rgrad(ctx, 48, 52, 3, 26, [[0, '#fff'], [0.4, '#ff7a3c'], [1, '#c21414']]);
+  ctx.beginPath(); ctx.arc(48, 52, 20, 0, Math.PI * 2); ctx.fill();
+  // Kühlspitzen oben
+  ctx.fillStyle = '#8a2a20';
+  for (const sx of [30, 48, 66]) {
+    ctx.beginPath(); ctx.moveTo(sx - 6, 26); ctx.lineTo(sx, 10); ctx.lineTo(sx + 6, 26); ctx.closePath(); ctx.fill();
+  }
+}
+
+// cyan Tempo-Modul (Tempo-Pfad upB): Turbine mit Rotorblättern
+function drawSpeedModule(ctx) {
+  ctx.fillStyle = '#0e2a38';
+  ctx.beginPath(); ctx.arc(48, 50, 30, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#1b2447'; ctx.lineWidth = 6; ctx.stroke();
+  // Rotor
+  ctx.fillStyle = '#40e0ff';
+  for (let i = 0; i < 4; i++) {
+    ctx.save(); ctx.translate(48, 50); ctx.rotate(i * Math.PI / 2);
+    ctx.beginPath(); ctx.moveTo(0, -6); ctx.quadraticCurveTo(24, -14, 26, 0); ctx.quadraticCurveTo(10, 2, 0, 6); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  ctx.fillStyle = '#eaffff';
+  ctx.beginPath(); ctx.arc(48, 50, 7, 0, Math.PI * 2); ctx.fill();
+}
+
+// Ausbau-Optik: pfad-spezifische Anbauten statt Gold-Aura.
+// upA (Kraft) -> rote Schaden-Module, upB (Tempo) -> cyan Turbinen.
+// Nur die Anzahl zeigt die Stufe; das Gebäude wächst nur minimal.
 function attachDefenderExtras(card, size, y) {
   const d1 = spritePlane('def-damage-1', 256, 256, size, size, drawCracks1);
   d1.position.set(0, y, 0.12);
@@ -159,77 +192,33 @@ function attachDefenderExtras(card, size, y) {
   d2.visible = false;
   card.add(d2);
 
-  const chevrons = [];
-  for (let i = 0; i < 2; i++) {
-    const c = spritePlane('lvl-chevron', 96, 96, 0.62, 0.62, drawChevron);
-    c.position.set(-0.34 + i * 0.68, y + size / 2 + 0.28, 0.14);
-    c.visible = false;
-    card.add(c);
-    chevrons.push(c);
-  }
-
-  // goldene Plattform (flach am Boden, ab Stufe 2)
   const sizer = card.parent;
-  const platform = spritePlane('lvl-platform', 192, 192, size * 1.15, size * 1.15, (ctx) => {
-    ctx.strokeStyle = '#ffd23f';
-    ctx.lineWidth = 9; ctx.lineJoin = 'round';
-    ctx.beginPath();
-    for (let i = 0; i <= 6; i++) {
-      const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
-      const x = 96 + Math.cos(a) * 80, yy = 96 + Math.sin(a) * 80;
-      i === 0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy);
-    }
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,210,63,0.45)';
-    ctx.lineWidth = 20;
-    ctx.beginPath();
-    for (let i = 0; i <= 6; i++) {
-      const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
-      const x = 96 + Math.cos(a) * 66, yy = 96 + Math.sin(a) * 66;
-      i === 0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy);
-    }
-    ctx.stroke();
-    // Energie-Kerben
-    ctx.fillStyle = '#fff3b0';
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2;
-      ctx.beginPath();
-      ctx.arc(96 + Math.cos(a) * 80, 96 + Math.sin(a) * 80, 7, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  });
-  platform.rotation.x = -Math.PI / 2;
-  platform.position.y = 0.05;
-  platform.renderOrder = -1;
-  platform.visible = false;
-  sizer.add(platform);
+  const modSize = size * 0.34;
 
-  // Energie-Aura hinter dem Gebäude (Stufe 3)
-  const aura = spritePlane('lvl-aura', 160, 160, size * 1.25, size * 1.25, (ctx) => {
-    const g = ctx.createRadialGradient(80, 80, 20, 80, 80, 78);
-    g.addColorStop(0, 'rgba(255,222,120,0.0)');
-    g.addColorStop(0.7, 'rgba(255,210,63,0.28)');
-    g.addColorStop(1, 'rgba(255,190,50,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(80, 80, 78, 0, Math.PI * 2); ctx.fill();
-  }, { additive: true });
-  aura.position.set(0, y, -0.06);
-  aura.visible = false;
-  card.add(aura);
+  // rote Kraft-Module rechts, cyan Tempo-Module links — je bis zu 2 Stufen
+  const powerMods = [];
+  const speedMods = [];
+  for (let i = 0; i < 2; i++) {
+    const pm = spritePlane('mod-power', 96, 96, modSize, modSize, drawPowerModule);
+    pm.position.set(size * 0.34, y - size * 0.20 + i * (modSize * 0.82), 0.16);
+    pm.visible = false; card.add(pm); powerMods.push(pm);
+
+    const sm = spritePlane('mod-speed', 96, 96, modSize, modSize, drawSpeedModule);
+    sm.position.set(-size * 0.34, y - size * 0.20 + i * (modSize * 0.82), 0.16);
+    sm.visible = false; card.add(sm); speedMods.push(sm);
+  }
 
   return {
     setDamage(stage) {
       d1.visible = stage >= 1;
       d2.visible = stage >= 2;
     },
-    setLevel(level) {
-      chevrons[0].visible = level >= 2;
-      chevrons[1].visible = level >= 3;
-      platform.visible = level >= 2;
-      aura.visible = level >= 3;
-      // das Gebäude wächst sichtbar mit jeder Stufe
+    // upA = Kraft-Stufen (rot), upB = Tempo-Stufen (cyan)
+    setUpgrade(upA, upB) {
+      powerMods.forEach((m, i) => { m.visible = i < upA; });
+      speedMods.forEach((m, i) => { m.visible = i < upB; });
       const base = sizer.userData.baseScale ?? 1;
-      sizer.scale.setScalar(base * (1 + 0.07 * (level - 1)));
+      sizer.scale.setScalar(base * (1 + 0.04 * (upA + upB)));
     },
   };
 }
@@ -321,18 +310,20 @@ function glowDisc(key, color, worldSize) {
 
 // Elite-Gegner: pulsierende gold-rote Aura (Markierung für verstärkte Varianten)
 export function makeEliteAura(size = 3.2) {
+  // rot-crimson statt gold, damit Elite-Gegner nicht mit gelben Upgrades
+  // verwechselt werden
   const m = spritePlane('elite-aura', 160, 160, size, size, (ctx) => {
     const g = rgrad(ctx, 80, 80, 24, 78, [
-      [0, 'rgba(255,120,50,0)'],
-      [0.65, 'rgba(255,160,50,0.4)'],
-      [0.88, 'rgba(255,210,63,0.75)'],
-      [1, 'rgba(255,160,50,0)'],
+      [0, 'rgba(255,40,60,0)'],
+      [0.65, 'rgba(255,50,70,0.4)'],
+      [0.88, 'rgba(255,70,90,0.7)'],
+      [1, 'rgba(255,40,60,0)'],
     ]);
     ctx.fillStyle = g;
     ctx.beginPath(); ctx.arc(80, 80, 78, 0, Math.PI * 2); ctx.fill();
-    // kleine Zacken-Krone oben
-    ctx.fillStyle = '#ffd23f';
-    ctx.strokeStyle = '#7a4d00'; ctx.lineWidth = 4; ctx.lineJoin = 'round';
+    // kleine Zacken-Krone oben (dunkelrot)
+    ctx.fillStyle = '#ff3b52';
+    ctx.strokeStyle = '#5c0a14'; ctx.lineWidth = 4; ctx.lineJoin = 'round';
     ctx.beginPath();
     ctx.moveTo(56, 34); ctx.lineTo(62, 16) ; ctx.lineTo(72, 30);
     ctx.lineTo(80, 12); ctx.lineTo(88, 30); ctx.lineTo(98, 16); ctx.lineTo(104, 34);
@@ -353,6 +344,37 @@ export function makeHitFlash(size = 2.4) {
     ctx.beginPath(); ctx.arc(64, 64, 60, 0, Math.PI * 2); ctx.fill();
   }, { additive: true });
   m.visible = false;
+  return m;
+}
+
+// Energie-Schild um einen Gegner (Hexagon-Blase, bricht durch Ionenpuls/EMP).
+// Nur Ionen- und EMP-Waffen durchdringen es effektiv — sonst hält es lange.
+export function makeEnemyShield(size = 3.0) {
+  const m = spritePlane('enemy-shield', 192, 192, size, size, (ctx) => {
+    const c = 96;
+    // schimmernde Blase
+    ctx.fillStyle = rgrad(ctx, c, c, 30, 92, [
+      [0, 'rgba(120,235,255,0.05)'], [0.72, 'rgba(90,200,255,0.14)'],
+      [0.9, 'rgba(150,235,255,0.55)'], [1, 'rgba(120,235,255,0)'],
+    ]);
+    ctx.beginPath(); ctx.arc(c, c, 90, 0, Math.PI * 2); ctx.fill();
+    // Hexagon-Wabenmuster
+    ctx.strokeStyle = 'rgba(190,250,255,0.4)';
+    ctx.lineWidth = 2.5;
+    for (const [hx, hy] of [[60, 72], [132, 66], [96, 108], [56, 122], [138, 120]]) {
+      ctx.beginPath();
+      for (let i = 0; i <= 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        const px = hx + Math.cos(a) * 15, py = hy + Math.sin(a) * 15;
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+    // heller Glanzbogen
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+    ctx.lineWidth = 6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(c, c, 78, 1.15 * Math.PI, 1.55 * Math.PI); ctx.stroke();
+  }, { additive: true });
   return m;
 }
 
@@ -388,8 +410,158 @@ export function buildDefenderMesh(typeId) {
     case 'ionenpuls': return buildIonenpuls();
     case 'raketenwerfer': return buildRaketenwerfer();
     case 'reparaturdrohne': return buildReparaturdrohne();
+    case 'kryoturm': return buildKryoturm();
+    case 'kettenblitz': return buildKettenblitz();
+    case 'railkanone': return buildRailkanone();
     default: throw new Error(`Unbekannter Verteidiger-Typ: ${typeId}`);
   }
+}
+
+// --- Kryo-Turm: eisige Doppeldüse mit gefrorenem Kern ---
+function buildKryoturm() {
+  const g = new THREE.Group();
+  const card = makeRig(g, 1.25, 3.0);
+  const body = spritePlane('def-kryo', 256, 256, 3.4, 3.4, (ctx) => {
+    // Fuß
+    ctx.fillStyle = lgrad(ctx, 0, 198, 0, 246, [[0, '#456a8c'], [1, '#2b4460']]);
+    rr(ctx, 66, 200, 124, 46, 16); ctx.fill(); o(ctx); ctx.stroke();
+    // Tank mit Frost-Kern
+    ctx.fillStyle = lgrad(ctx, 0, 108, 0, 196, [[0, '#dff6ff'], [1, '#7cc4e6']]);
+    rr(ctx, 86, 118, 84, 84, 26); ctx.fill(); o(ctx); ctx.stroke();
+    ctx.fillStyle = rgrad(ctx, 128, 158, 4, 40, [[0, '#ffffff'], [0.5, '#b3f0ff'], [1, '#4aa8d8']]);
+    ctx.beginPath(); ctx.arc(128, 158, 32, 0, Math.PI * 2); ctx.fill(); o(ctx, 6); ctx.stroke();
+    // Eiskristall-Symbol
+    ctx.strokeStyle = '#eaffff'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    for (let i = 0; i < 3; i++) {
+      ctx.save(); ctx.translate(128, 158); ctx.rotate(i * Math.PI / 3);
+      ctx.beginPath(); ctx.moveTo(-22, 0); ctx.lineTo(22, 0);
+      ctx.moveTo(12, -7); ctx.lineTo(22, 0); ctx.lineTo(12, 7); ctx.stroke();
+      ctx.restore();
+    }
+    // Doppeldüse nach rechts
+    ctx.fillStyle = lgrad(ctx, 160, 0, 246, 0, [[0, '#a9dcf0'], [1, '#5a9cc4']]);
+    rr(ctx, 168, 128, 78, 24, 10); ctx.fill(); o(ctx); ctx.stroke();
+    rr(ctx, 168, 158, 78, 24, 10); ctx.fill(); o(ctx); ctx.stroke();
+    ctx.fillStyle = '#eaffff';
+    rr(ctx, 236, 132, 10, 16, 4); ctx.fill();
+    rr(ctx, 236, 162, 10, 16, 4); ctx.fill();
+    // Reif-Glanz
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.beginPath(); ctx.ellipse(104, 138, 14, 8, -0.5, 0, Math.PI * 2); ctx.fill();
+  });
+  body.position.y = 1.7;
+  card.add(body);
+  const tip = glowDisc('frost', 'rgba(150,230,255,0.9)', 1.0);
+  tip.position.set(1.6, 1.55, 0.06);
+  card.add(tip);
+  const extras = attachDefenderExtras(card, 3.1, 1.7);
+  g.userData.muzzleOffset = new THREE.Vector3(1.9, 1.75, 0);
+  const phase = Math.random() * Math.PI * 2;
+  return {
+    group: g, ...extras,
+    animate(dt, time) {
+      const s = Math.sin(time * 2.3 + phase) * 0.03;
+      card.scale.set(1 + s, 1 - s, 1);
+      tip.material.opacity = 0.4 + Math.abs(Math.sin(time * 3 + phase)) * 0.4;
+    },
+  };
+}
+
+// --- Kettenblitz: Tesla-Spule mit Bogenlampen-Kugel ---
+function buildKettenblitz() {
+  const g = new THREE.Group();
+  const card = makeRig(g, 1.25, 3.0);
+  const body = spritePlane('def-tesla', 256, 256, 3.4, 3.4, (ctx) => {
+    // Fuß
+    ctx.fillStyle = lgrad(ctx, 0, 198, 0, 246, [[0, '#4a3a6b'], [1, '#2c2148']]);
+    rr(ctx, 70, 200, 116, 46, 16); ctx.fill(); o(ctx); ctx.stroke();
+    // konische Spule
+    ctx.fillStyle = lgrad(ctx, 0, 132, 0, 202, [[0, '#8f7fc0'], [1, '#5a4a8c']]);
+    ctx.beginPath();
+    ctx.moveTo(104, 200); ctx.lineTo(114, 132); ctx.lineTo(142, 132); ctx.lineTo(152, 200);
+    ctx.closePath(); ctx.fill(); o(ctx); ctx.stroke();
+    // Kupferwindungen
+    ctx.fillStyle = '#c98adf';
+    for (const [ry, rw] of [[140, 40], [156, 44], [172, 48], [188, 52]]) {
+      rr(ctx, 128 - rw / 2, ry, rw, 8, 4); ctx.fill(); o(ctx, 4); ctx.stroke();
+      ctx.fillStyle = '#b388ff';
+    }
+    // Bogenlampen-Kugel oben
+    ctx.fillStyle = rgrad(ctx, 128, 100, 6, 46, [[0, '#ffffff'], [0.45, '#d9b3ff'], [1, '#7a52c8']]);
+    ctx.beginPath(); ctx.arc(128, 104, 42, 0, Math.PI * 2); ctx.fill(); o(ctx); ctx.stroke();
+    // Mini-Blitze auf der Kugel
+    ctx.strokeStyle = '#f0e6ff'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(128, 104); ctx.lineTo(112, 88); ctx.lineTo(120, 84); ctx.lineTo(106, 70); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(128, 104); ctx.lineTo(148, 92); ctx.lineTo(142, 100); ctx.lineTo(160, 90); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(128, 104); ctx.lineTo(132, 82); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.beginPath(); ctx.ellipse(114, 90, 12, 7, -0.5, 0, Math.PI * 2); ctx.fill();
+  });
+  body.position.y = 1.7;
+  card.add(body);
+  const arc = glowDisc('tesla', 'rgba(179,136,255,0.9)', 1.7);
+  arc.position.set(0, 2.35, 0.05);
+  card.add(arc);
+  const extras = attachDefenderExtras(card, 3.1, 1.7);
+  const phase = Math.random() * Math.PI * 2;
+  return {
+    group: g, ...extras,
+    animate(dt, time) {
+      const s = Math.sin(time * 2.4 + phase) * 0.03;
+      card.scale.set(1 + s, 1 - s, 1);
+      arc.material.opacity = 0.3 + Math.abs(Math.sin(time * 7 + phase)) * 0.5;
+      arc.scale.setScalar(0.8 + Math.abs(Math.sin(time * 7 + phase)) * 0.3);
+    },
+  };
+}
+
+// --- Railkanone: massiver Schienenlauf auf Drehlafette ---
+function buildRailkanone() {
+  const g = new THREE.Group();
+  const card = makeRig(g, 1.25, 3.1);
+  const body = spritePlane('def-rail', 256, 256, 3.7, 3.7, (ctx) => {
+    // breiter Fuß mit Streben
+    ctx.fillStyle = lgrad(ctx, 0, 200, 0, 248, [[0, '#5a5346'], [1, '#38342b']]);
+    ctx.beginPath();
+    ctx.moveTo(46, 248); ctx.lineTo(64, 200); ctx.lineTo(192, 200); ctx.lineTo(210, 248);
+    ctx.closePath(); ctx.fill(); o(ctx); ctx.stroke();
+    // Drehturm-Block
+    ctx.fillStyle = lgrad(ctx, 0, 150, 0, 205, [[0, '#8a8172'], [1, '#565043']]);
+    rr(ctx, 84, 150, 88, 56, 12); ctx.fill(); o(ctx); ctx.stroke();
+    // Energiespeicher-Ringe
+    ctx.fillStyle = '#ffb066';
+    for (const rx of [96, 120]) { ctx.beginPath(); ctx.arc(rx, 178, 9, 0, Math.PI * 2); ctx.fill(); o(ctx, 4); ctx.stroke(); }
+    // Doppel-Schienenlauf weit nach rechts
+    ctx.fillStyle = lgrad(ctx, 0, 138, 0, 150, [[0, '#9a9284'], [1, '#655d4e']]);
+    rr(ctx, 150, 138, 100, 12, 4); ctx.fill(); o(ctx, 6); ctx.stroke();
+    rr(ctx, 150, 168, 100, 12, 4); ctx.fill(); o(ctx, 6); ctx.stroke();
+    // glühende Schiene dazwischen
+    ctx.fillStyle = lgrad(ctx, 150, 0, 250, 0, [[0, 'rgba(255,176,102,0.3)'], [1, '#ffe0b0']]);
+    rr(ctx, 152, 152, 96, 16, 4); ctx.fill();
+    ctx.fillStyle = '#fff3e0';
+    rr(ctx, 226, 156, 22, 8, 3); ctx.fill();
+    // Verstrebung
+    ctx.strokeStyle = OUTLINE; ctx.lineWidth = 7; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(170, 150); ctx.lineTo(200, 168); ctx.moveTo(200, 150); ctx.lineTo(170, 168); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.beginPath(); ctx.ellipse(110, 162, 16, 7, -0.2, 0, Math.PI * 2); ctx.fill();
+  });
+  body.position.y = 1.75;
+  card.add(body);
+  const tip = glowDisc('rail', 'rgba(255,176,102,0.9)', 1.0);
+  tip.position.set(1.7, 1.68, 0.06);
+  card.add(tip);
+  const extras = attachDefenderExtras(card, 3.3, 1.75);
+  g.userData.muzzleOffset = new THREE.Vector3(2.0, 1.7, 0);
+  const phase = Math.random() * Math.PI * 2;
+  return {
+    group: g, ...extras,
+    animate(dt, time) {
+      const s = Math.sin(time * 1.8 + phase) * 0.025;
+      card.scale.set(1 + s, 1 - s, 1);
+      tip.material.opacity = 0.35 + Math.abs(Math.sin(time * 2 + phase)) * 0.5;
+    },
+  };
 }
 
 // --- Laserturm: kantige Railgun mit Doppelschiene und Energiezelle ---
@@ -1004,6 +1176,9 @@ export function buildEnemyMesh(typeId) {
     case 'phasenspringer': return buildPhasenspringer();
     case 'panzerwalze': return buildPanzerwalze();
     case 'alienZerstoerer': return buildZerstoerer();
+    case 'sprengdrohne': return buildSprengdrohne();
+    case 'aegisTraeger': return buildAegis();
+    case 'phantom': return buildPhantom();
     case 'mutterschiffFragment': return buildMutterschiff();
     default: throw new Error(`Unbekannter Gegner-Typ: ${typeId}`);
   }
@@ -1022,6 +1197,7 @@ const THUMB_KEYS = {
     kleinasteroid: 'en-asteroid', schrottbrocken: 'en-schrott', berstbrocken: 'en-berst',
     alienDrohne: 'en-drohne', schwarmling: 'en-schwarmling', phasenspringer: 'en-phase',
     panzerwalze: 'en-panzer', alienZerstoerer: 'en-zerstoerer', mutterschiffFragment: 'en-boss',
+    sprengdrohne: 'en-spreng', aegisTraeger: 'en-aegis', phantom: 'en-phantom',
   },
 };
 
@@ -1494,6 +1670,146 @@ function buildZerstoerer() {
       card.rotation.z = Math.sin(time * 1.9 + phase) * 0.05;
       flame.scale.x = 0.8 + Math.sin(time * 16 + phase) * 0.25;
       flame.material.opacity = 0.7 + Math.sin(time * 13 + phase) * 0.3;
+    },
+  };
+}
+
+// --- Sprengdrohne: rasende Kamikaze-Kugel mit Warnblinken ---
+function buildSprengdrohne() {
+  const g = new THREE.Group();
+  const card = makeRig(g, 1.2, 2.2);
+  const body = spritePlane('en-spreng', 192, 192, 2.1, 2.1, (ctx) => {
+    // Stummelflügel
+    ctx.fillStyle = '#8a1f2a'; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 6; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(60, 96); ctx.lineTo(24, 74); ctx.lineTo(30, 106); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(132, 96); ctx.lineTo(168, 74); ctx.lineTo(162, 106); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Kugelkörper mit Warnstreifen
+    ctx.fillStyle = rgrad(ctx, 90, 90, 8, 56, [[0, '#ff8a6a'], [0.6, '#e0402a'], [1, '#8a1414']]);
+    ctx.beginPath(); ctx.arc(96, 100, 48, 0, Math.PI * 2); ctx.fill(); o(ctx); ctx.stroke();
+    ctx.save(); ctx.beginPath(); ctx.arc(96, 100, 46, 0, Math.PI * 2); ctx.clip();
+    ctx.fillStyle = '#2b2b33';
+    for (let i = -3; i < 5; i++) { ctx.beginPath(); ctx.moveTo(60 + i * 24, 54); ctx.lineTo(76 + i * 24, 54); ctx.lineTo(52 + i * 24, 146); ctx.lineTo(36 + i * 24, 146); ctx.closePath(); ctx.fill(); }
+    ctx.restore();
+    // blinkendes Warnauge
+    ctx.fillStyle = '#ffd23f';
+    ctx.beginPath(); ctx.arc(96, 96, 16, 0, Math.PI * 2); ctx.fill(); o(ctx, 6); ctx.stroke();
+    ctx.fillStyle = '#8a1414';
+    ctx.beginPath(); ctx.arc(96, 96, 7, 0, Math.PI * 2); ctx.fill();
+    // Zünder oben
+    ctx.strokeStyle = OUTLINE; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(96, 52); ctx.lineTo(96, 36); ctx.stroke();
+    ctx.fillStyle = '#ff5252'; ctx.beginPath(); ctx.arc(96, 32, 8, 0, Math.PI * 2); ctx.fill(); o(ctx, 4); ctx.stroke();
+  });
+  body.position.y = 1.1;
+  card.add(body);
+  const warn = glowDisc('spreng-warn', 'rgba(255,80,50,0.9)', 1.2);
+  warn.position.set(0, 1.5, 0.05);
+  card.add(warn);
+  const phase = Math.random() * Math.PI * 2;
+  return {
+    group: g,
+    animate(dt, time) {
+      card.position.y = Math.sin(time * 8 + phase) * 0.12;
+      card.rotation.z = Math.sin(time * 6 + phase) * 0.12;
+      warn.material.opacity = Math.sin(time * 12 + phase) > 0 ? 0.9 : 0.1; // Warnblinken
+    },
+  };
+}
+
+// --- Aegis-Träger: Support-Alien mit Schutzfeld-Kuppel ---
+function buildAegis() {
+  const g = new THREE.Group();
+  const card = makeRig(g, 1.2, 3.2);
+  const body = spritePlane('en-aegis', 256, 256, 3.0, 3.0, (ctx) => {
+    // Sockel/Beine
+    ctx.fillStyle = '#3a2d5c'; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 8; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(96, 176); ctx.lineTo(70, 220); ctx.lineTo(88, 220); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(160, 176); ctx.lineTo(186, 220); ctx.lineTo(168, 220); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // Körper
+    ctx.fillStyle = lgrad(ctx, 0, 96, 0, 190, [[0, '#8f6fd0'], [1, '#4d2f8c']]);
+    rr(ctx, 78, 96, 100, 92, 30); ctx.fill(); o(ctx); ctx.stroke();
+    // Projektor-Kern
+    ctx.fillStyle = rgrad(ctx, 128, 138, 4, 34, [[0, '#eaffff'], [0.5, '#7fd8ff'], [1, '#2f7fc8']]);
+    ctx.beginPath(); ctx.arc(128, 138, 28, 0, Math.PI * 2); ctx.fill(); o(ctx, 6); ctx.stroke();
+    // Schild-Emblem im Kern
+    ctx.fillStyle = '#123a5c';
+    ctx.beginPath(); ctx.moveTo(128, 122); ctx.lineTo(142, 130); ctx.lineTo(142, 146);
+    ctx.quadraticCurveTo(128, 158, 114, 146); ctx.lineTo(114, 130); ctx.closePath(); ctx.fill();
+    // Emitter-Antennen
+    ctx.strokeStyle = OUTLINE; ctx.lineWidth = 6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(92, 96); ctx.lineTo(78, 66); ctx.moveTo(164, 96); ctx.lineTo(178, 66); ctx.stroke();
+    ctx.fillStyle = '#7fd8ff';
+    ctx.beginPath(); ctx.arc(76, 62, 8, 0, Math.PI * 2); ctx.fill(); o(ctx, 4); ctx.stroke();
+    ctx.beginPath(); ctx.arc(180, 62, 8, 0, Math.PI * 2); ctx.fill(); o(ctx, 4); ctx.stroke();
+  });
+  body.position.y = 1.5;
+  card.add(body);
+  // große, halbtransparente Schutzkuppel (zeigt den Schutzradius an)
+  const dome = spritePlane('en-aegis-dome', 256, 256, 6.2, 6.2, (ctx) => {
+    ctx.fillStyle = rgrad(ctx, 128, 128, 40, 122, [
+      [0, 'rgba(120,216,255,0.04)'], [0.8, 'rgba(90,190,255,0.12)'],
+      [0.94, 'rgba(150,230,255,0.4)'], [1, 'rgba(120,216,255,0)'],
+    ]);
+    ctx.beginPath(); ctx.arc(128, 128, 122, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(190,240,255,0.5)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(128, 128, 118, 0, Math.PI * 2); ctx.stroke();
+  }, { additive: true });
+  dome.position.set(0, 1.6, -0.05);
+  g.add(dome);
+  const phase = Math.random() * Math.PI * 2;
+  let aegisActive = true;
+  return {
+    group: g,
+    setAegisActive(on) { aegisActive = on; dome.visible = on; },
+    animate(dt, time) {
+      card.position.y = Math.sin(time * 1.6 + phase) * 0.08;
+      dome.rotation.z += dt * 0.3;
+      dome.material.opacity = 0.7 + Math.sin(time * 2.4 + phase) * 0.2;
+    },
+  };
+}
+
+// --- Phantom: schemenhafter Tarn-Geist ---
+function buildPhantom() {
+  const g = new THREE.Group();
+  const card = makeRig(g, 1.25, 2.5);
+  const ghost = spritePlane('en-phantom', 224, 256, 2.6, 2.9, (ctx) => {
+    const grd = lgrad(ctx, 0, 40, 0, 236, [
+      [0, 'rgba(180,200,255,0.95)'], [0.5, 'rgba(120,130,220,0.8)'], [1, 'rgba(80,60,160,0.3)'],
+    ]);
+    ctx.fillStyle = grd; ctx.strokeStyle = OUTLINE; ctx.lineWidth = 7; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(112, 28);
+    ctx.quadraticCurveTo(182, 54, 178, 132);
+    ctx.quadraticCurveTo(176, 190, 150, 232);
+    // gezackter Saum
+    ctx.lineTo(132, 210); ctx.lineTo(112, 234); ctx.lineTo(92, 210); ctx.lineTo(74, 232);
+    ctx.quadraticCurveTo(48, 190, 46, 132);
+    ctx.quadraticCurveTo(42, 54, 112, 28);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // hohle Augen
+    ctx.fillStyle = '#e6ecff';
+    ctx.beginPath(); ctx.ellipse(94, 104, 12, 18, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(134, 104, 12, 18, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#5a4a9c';
+    ctx.beginPath(); ctx.arc(96, 110, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(132, 110, 5, 0, Math.PI * 2); ctx.fill();
+    // Phasen-Ringe
+    ctx.strokeStyle = 'rgba(190,200,255,0.7)'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.ellipse(112, 150, 66, 12, 0, 0, Math.PI * 2); ctx.stroke();
+  });
+  ghost.position.y = 1.5;
+  card.add(ghost);
+  const phase = Math.random() * Math.PI * 2;
+  let cloaked = false;
+  return {
+    group: g,
+    setCloak(on) { cloaked = on; },
+    animate(dt, time) {
+      card.position.y = Math.sin(time * 2.2 + phase) * 0.16;
+      // sanft in die Tarnung überblenden
+      const target = cloaked ? 0.18 : 1;
+      ghost.material.opacity += (target - ghost.material.opacity) * Math.min(1, dt * 6);
     },
   };
 }

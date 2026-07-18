@@ -45,8 +45,8 @@ export class Game {
       },
       onStartLevel: (i) => this.startLevel(i),
       onStartEndless: () => this.startLevel(-1),
-      onRestart: () => this.startLevel(this.currentLevel),
-      onLevelSelect: () => this.hud.showScreen('start'),
+      onRestart: () => this.startLevel(this.endless ? -1 : this.currentLevel),
+      onLevelSelect: () => this.returnToMenu(),
       onResetProgress: () => this.resetProgress(),
       onDragStart: (t, ev) => this.startDrag(t, ev),
       onPause: () => this.togglePause(),
@@ -146,6 +146,16 @@ export class Game {
     this.grid = Array.from({ length: LANES }, () => Array(COLS).fill(null));
     this.cooldowns = {};
     this.buffs = { overchargeUntil: 0 };
+
+    // Spezialfelder: boostCells (schnellere Feuerrate/Produktion) & blockedCells (unbebaubar)
+    this.boostCells = new Set();
+    this.blockedCells = new Set();
+    for (const c of level.specialCells ?? []) {
+      const key = `${c.lane},${c.col}`;
+      if (c.type === 'boost') this.boostCells.add(key);
+      else if (c.type === 'blocked') this.blockedCells.add(key);
+    }
+    this.world.setSpecialCells(level.specialCells ?? []);
     this.selectedType = null;
     this.hud.select(null);
     this.hud.hideBuildMenu();
@@ -165,6 +175,15 @@ export class Game {
     this.waves = new WaveManager(level, {
       spawnEnemy: (type, lane, elite) => this.spawnEnemy(type, lane, elite),
       onWaveStart: (i, wave) => {
+        // Zinsen auf gespartes Guthaben (8 %, max +40) — belohnt vorausschauendes Sparen
+        if (i >= 1 && this.energy > 0) {
+          const interest = Math.min(40, Math.floor(this.energy * 0.08));
+          if (interest > 0) {
+            this.energy += interest;
+            this.hud.setEnergy(this.energy, true);
+            this.hud.floatCenter?.(`+${interest} Zinsen`);
+          }
+        }
         this.hud.showBanner(`WELLE ${i + 1}`, wave.label ?? '', !!wave.danger);
         this.hud.hideWavePreview();
         this.sound.waveStart();
@@ -183,6 +202,19 @@ export class Game {
       this.endless ? 'ANSTURM-MODUS' : 'SYSTEME ONLINE',
       this.endless ? `Rekord: Welle ${this.progress.endlessBest} — wie weit kommst du?` : 'Baue deine Verteidigung auf!'
     );
+  }
+
+  // sauber ins Hauptmenü zurück (Pause aufheben, laufendes Level verwerfen)
+  returnToMenu() {
+    this.paused = false;
+    this.hud.setPaused(false);
+    this.phase = 'menu';
+    this.clearEntities();
+    this.crystals.reset();
+    this.powerups.reset();
+    this.hud.hideBuildMenu();
+    this.hud.select(null);
+    this.hud.showScreen('start');
   }
 
   togglePause() {
@@ -536,7 +568,6 @@ export class Game {
     if (this.phase !== 'playing') return;
     const cell = this.pickCell(ev);
     this.updateRangePreview(cell);
-    this.updateHoverInfo(cell, ev);
     if (cell && this.selectedType === 'orbital') {
       this.highlight.visible = true;
       this.highlight.position.x = colX(cell.col);
@@ -553,7 +584,8 @@ export class Game {
       this.highlight.visible = true;
       this.highlight.position.x = colX(cell.col);
       this.highlight.position.z = laneZ(cell.lane);
-      const free = !this.grid[cell.lane][cell.col];
+      const blocked = this.blockedCells?.has(`${cell.lane},${cell.col}`);
+      const free = !this.grid[cell.lane][cell.col] && !blocked;
       const affordable = this.energy >= DEFENDER_TYPES[this.selectedType].cost;
       const ready = (this.cooldowns[this.selectedType] ?? 0) <= 0;
       this.highlight.material.color.set(free && affordable && ready ? 0x4DD0E1 : 0xFF5252);
@@ -586,19 +618,6 @@ export class Game {
   }
 
   // Hover-Kurzinfo über platzierten Gebäuden
-  updateHoverInfo(cell, ev) {
-    const occupant = cell ? this.grid[cell.lane][cell.col] : null;
-    if (occupant && !this.drag && this.hud.el.buildMenu.classList.contains('hidden')) {
-      if (this.hoverTarget !== occupant) {
-        this.hoverTarget = occupant;
-        this.hud.showPlacedTooltip(occupant, ev.clientX, ev.clientY);
-      }
-    } else if (this.hoverTarget) {
-      this.hoverTarget = null;
-      if (this.sellCandidate === null || this.sellCandidate === undefined) this.hud.hideTooltip();
-    }
-  }
-
   onLeftClick(ev) {
     if (this.phase !== 'playing' || this.paused) return;
     this.updateRaycaster(ev);
@@ -652,6 +671,12 @@ export class Game {
       return;
     }
 
+    // Trümmerfeld: nicht bebaubar
+    if (this.blockedCells.has(`${cell.lane},${cell.col}`)) {
+      this.hud.showBanner('TRÜMMERFELD', 'Dieses Feld ist blockiert.');
+      return;
+    }
+
     // Einheit platzieren
     if (!this.selectedType) return;
     const data = DEFENDER_TYPES[this.selectedType];
@@ -659,6 +684,8 @@ export class Game {
     if ((this.cooldowns[this.selectedType] ?? 0) > 0) return;
 
     const defender = new Defender(data, cell.lane, cell.col);
+    // Energie-Knoten: +30 % Feuerrate / Produktion / Pulsrate
+    if (this.boostCells.has(`${cell.lane},${cell.col}`)) defender.boosted = true;
     this.world.scene.add(defender.group);
     this.defenders.push(defender);
     this.grid[cell.lane][cell.col] = defender;
@@ -670,6 +697,10 @@ export class Game {
     this.hud.setEnergy(this.energy);
     this.particles.burstImpact(defender.position.clone().add(new THREE.Vector3(0, 1, 0)));
     this.sound.place();
+    // nach dem Platzieren abwählen, damit der nächste Klick (z. B. Energie sammeln)
+    // nicht versehentlich ein weiteres Gebäude setzt
+    this.hud.select(null);
+    this.highlight.visible = false;
   }
 
   sellDefender(defender, screenX, screenY) {
@@ -728,6 +759,23 @@ export class Game {
         if (d.heal(d.maxHp * 0.5) > 0) {
           this.particles.burstImpact(d.position.clone().add(new THREE.Vector3(0, 2.2, 0)), 0x3ecf6a);
         }
+      }
+    } else if (type === 'magnet') {
+      // alle Energie-Blitze auf einen Schlag einsammeln
+      this.particles.shockwave(position, 0x40e0ff, 10);
+      const bonusPerCrystal = this.progress.skills.includes('ladekerne') ? 10 : 0;
+      const collected = this.crystals.collectAll();
+      let total = 0;
+      for (const c of collected) {
+        const value = c.value + bonusPerCrystal;
+        total += value;
+        this.particles.burstCrystal(c.position);
+      }
+      if (total > 0) {
+        this.energy += total;
+        this.stats.energyCollected += total;
+        this.hud.setEnergy(this.energy, true);
+        this.hud.floatCenter(`+${total} eingesammelt`);
       }
     }
   }
@@ -856,13 +904,33 @@ export class Game {
       e.update(dt, time, ctx);
     }
 
+    // Aegis-Schutzfeld: reihenfolge-unabhängig in eigenem Durchlauf setzen
+    for (const e of this.enemies) e.protected = false;
+    for (const a of this.enemies) {
+      if (a.dead || !a.data.aegis) continue;
+      for (const e of this.enemies) {
+        if (e === a || e.dead) continue;
+        if (e.position.distanceTo(a.position) <= a.data.aegis.radius) e.protected = true;
+      }
+    }
+
     // Projektile
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];
       const hit = p.update(dt);
       if (hit && !hit.dead) {
         const impactPos = p.mesh.position.clone();
-        hit.takeDamage(p.damage, p.kind);
+        const shieldBefore = hit.shield;
+        const shieldOnly = hit.takeDamage(p.damage, p.kind);
+        // Schild-Feedback: Treffer als cyan Funke, Schildbruch als Schockwelle
+        if (shieldOnly) {
+          this.particles.burstImpact(impactPos, 0x9be8ff);
+        } else if (shieldBefore > 0 && hit.shield <= 0) {
+          this.particles.shockwave(impactPos, 0x9be8ff, 4);
+          this.sound.explosion(false);
+        }
+        // Kryo-Turm: Treffer verlangsamt den Gegner
+        if (p.frost && !hit.dead) hit.applyFrost(p.frost, time);
         if (p.sourceId) {
           this.stats.damageByTower[p.sourceId] =
             (this.stats.damageByTower[p.sourceId] ?? 0) + p.damage;

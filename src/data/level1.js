@@ -8,6 +8,8 @@ function entry(t, type, lane) {
 
 export const LEVEL_1 = {
   name: 'Sektor Nereon',
+  flavor: 'Der ruhige Rand des Systems',
+  // Level 1 bewusst ohne Spezialfelder — ruhiger Einstieg
   waves: [
     {
       // Welle 1 — erste treibende Asteroiden

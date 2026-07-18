@@ -103,6 +103,50 @@ export const DEFENDER_TYPES = {
     range: 5.5,
     color: 0x3ECF6A,
   },
+  kryoturm: {
+    id: 'kryoturm',
+    name: 'Kryo-Turm',
+    description: 'Feuert Frostgeschosse, die getroffene Gegner spürbar verlangsamen. Wenig Schaden, aber bremst ganze Schwärme aus.',
+    cost: 120,
+    cooldown: 5,
+    hp: 100,
+    behavior: 'shooter',
+    damage: 9,
+    fireInterval: 1.1,
+    range: 15,
+    projectile: 'frost',
+    frost: { factor: 0.5, duration: 2.5 },
+    color: 0x8fe6ff,
+  },
+  kettenblitz: {
+    id: 'kettenblitz',
+    name: 'Kettenblitz',
+    description: 'Entlädt einen Blitz, der von Gegner zu Gegner springt (bis zu 3 Sprünge). Hervorragend gegen dichte Gruppen.',
+    cost: 160,
+    cooldown: 7,
+    hp: 100,
+    behavior: 'chain',
+    damage: 24,
+    chainInterval: 1.5,
+    range: 14,
+    chainCount: 3,
+    chainRange: 4.5,
+    chainFalloff: 0.65,
+    color: 0xb388ff,
+  },
+  railkanone: {
+    id: 'railkanone',
+    name: 'Railkanone',
+    description: 'Panzerbrechender Schienenschuss über die gesamte Lane, der ALLE Gegner in der Reihe durchschlägt und Resistenzen ignoriert. Langsam, aber verheerend.',
+    cost: 220,
+    cooldown: 9,
+    hp: 120,
+    behavior: 'beam',
+    damage: 55,
+    beamInterval: 3.4,
+    range: 46,
+    color: 0xffb066,
+  },
 };
 
 // Reihenfolge in der Auswahl-Leiste
@@ -113,8 +157,11 @@ export const DEFENDER_ORDER = [
   'traktorstrahl',
   'plasmakanone',
   'ionenpuls',
+  'kryoturm',
   'raketenwerfer',
+  'kettenblitz',
   'reparaturdrohne',
+  'railkanone',
 ];
 
 // Ausbau-System: Stufe 1-3, Kosten pro Stufe = 75 % der Baukosten.
@@ -134,6 +181,16 @@ export function upgradeOptionsFor(data) {
       return [
         { key: 'a', icon: '⚔', label: 'Schaden +50 %' },
         { key: 'b', icon: '⚡', label: 'Pulsrate +33 %' },
+      ];
+    case 'chain':
+      return [
+        { key: 'a', icon: '⚔', label: 'Schaden +50 %' },
+        { key: 'b', icon: '⚡', label: 'Blitzrate +33 %' },
+      ];
+    case 'beam':
+      return [
+        { key: 'a', icon: '⚔', label: 'Schaden +50 %' },
+        { key: 'b', icon: '⚡', label: 'Ladezeit −25 %' },
       ];
     case 'generator':
       return [

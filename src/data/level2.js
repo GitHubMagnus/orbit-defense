@@ -7,6 +7,15 @@ function entry(t, type, lane) {
 
 export const LEVEL_2 = {
   name: 'Sektor Vortex',
+  flavor: 'Wo der Sturm die Sterne frisst',
+  specialCells: [
+    { lane: 2, col: 2, type: 'boost' },
+    { lane: 0, col: 5, type: 'boost' },
+    { lane: 4, col: 5, type: 'boost' },
+    { lane: 1, col: 4, type: 'blocked' },
+    { lane: 3, col: 1, type: 'blocked' },
+    { lane: 2, col: 6, type: 'blocked' },
+  ],
   waves: [
     {
       // Welle 1 — flotter Einstieg
@@ -84,19 +93,20 @@ export const LEVEL_2 = {
       ],
     },
     {
-      // Welle 6 — Drohnenschwarm mit Deckung
-      label: 'Drohnenschwarm mit Schrott-Deckung',
+      // Welle 6 — erste Sprengdrohnen zwischen Drohnen
+      label: 'SPRENGDROHNEN GEORTET!',
       danger: true,
       entries: [
         entry(0, 'schrottbrocken', 1),
         entry(1, 'schrottbrocken', 3),
-        entry(4, 'alienDrohne', 0),
-        entry(6, 'alienDrohne', 2),
+        entry(4, 'sprengdrohne', 2),
+        entry(6, 'alienDrohne', 0),
         entry(8, 'alienDrohne', 4),
-        entry(11, 'alienDrohne', 1),
-        entry(14, 'alienDrohne', 3),
+        entry(10, 'sprengdrohne', 1),
+        entry(11, 'sprengdrohne', 3),
+        entry(14, 'alienDrohne', 2),
         entry(17, 'schrottbrocken', 2),
-        entry(20, 'alienDrohne', 0),
+        entry(20, 'sprengdrohne', 0),
         entry(22, 'alienDrohne', 4),
       ],
     },
@@ -117,39 +127,39 @@ export const LEVEL_2 = {
       ],
     },
     {
-      // Welle 8 — gemischter Großangriff
-      label: 'GROSSANGRIFF AUF ALLE KORRIDORE',
+      // Welle 8 — erste Phantome tauchen auf
+      label: 'Phasenschemen flackern durch die Reihen',
       danger: true,
       entries: [
         entry(0, 'kleinasteroid', 0),
         entry(0.4, 'kleinasteroid', 2),
         entry(0.8, 'kleinasteroid', 4),
-        entry(3, 'alienDrohne', 1),
-        entry(4, 'alienDrohne', 3),
+        entry(3, 'phantom', 1),
+        entry(4, 'phantom', 3),
         entry(7, 'schrottbrocken', 0),
         entry(7.6, 'schrottbrocken', 2),
         entry(8.2, 'schrottbrocken', 4),
         entry(12, 'alienZerstoerer', 1),
-        entry(15, 'alienZerstoerer', 3),
+        entry(15, 'phantom', 2),
         entry(19, 'alienDrohne', 0),
         entry(20, 'alienDrohne', 2),
         entry(21, 'alienDrohne', 4),
       ],
     },
     {
-      // Welle 9 — schwere Zerstörer-Eskorte
-      label: 'Schwere Eskorte gesichtet',
+      // Welle 9 — Aegis-Träger schützt die Eskorte
+      label: 'AEGIS-TRÄGER schirmt die Front ab',
       danger: true,
       entries: [
-        entry(0, 'alienZerstoerer', 2),
-        entry(3, 'schrottbrocken', 1),
-        entry(4, 'schrottbrocken', 3),
-        entry(8, 'alienZerstoerer', 0),
-        entry(11, 'alienZerstoerer', 4),
-        entry(14, 'alienDrohne', 2),
+        entry(0, 'aegisTraeger', 2),
+        entry(3, 'alienZerstoerer', 1),
+        entry(4, 'alienZerstoerer', 3),
+        entry(8, 'alienDrohne', 0),
+        entry(11, 'alienDrohne', 4),
+        entry(14, 'sprengdrohne', 2),
         entry(16, 'alienDrohne', 1),
         entry(18, 'alienDrohne', 3),
-        entry(22, 'alienZerstoerer', 2),
+        entry(22, 'aegisTraeger', 2),
         entry(26, 'schrottbrocken', 0),
         entry(27, 'schrottbrocken', 4),
       ],

@@ -9,6 +9,7 @@ const PROJECTILE_DEFS = {
   plasma: { speed: 13, w: 1.15, h: 1.15, tex: 'proj-plasma' },
   // Rakete ist ein festes Objekt: normales Blending, sonst verwäscht sie zum Leucht-Klecks
   rakete: { speed: 15, w: 2.1, h: 0.8, tex: 'proj-rakete', solid: true },
+  frost:  { speed: 16, w: 0.85, h: 0.85, tex: 'proj-frost' },
   bolt:   { speed: 20, w: 0.75, h: 0.75, tex: 'proj-bolt' }, // Gegner-Schuss
 };
 
@@ -97,6 +98,23 @@ function projTexture(kind) {
       ctx.beginPath(); ctx.moveTo(84, 27); ctx.lineTo(134, 27); ctx.stroke();
     });
   }
+  if (kind === 'frost') {
+    return getTexture('proj-frost', 64, 64, (ctx) => {
+      // eisiger Kristall-Schneeflocken-Bolzen
+      const g = ctx.createRadialGradient(32, 32, 2, 32, 32, 30);
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(0.5, '#b3f0ff');
+      g.addColorStop(1, 'rgba(120,220,255,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(32, 32, 30, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#eaffff'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      for (let i = 0; i < 3; i++) {
+        ctx.save(); ctx.translate(32, 32); ctx.rotate(i * Math.PI / 3);
+        ctx.beginPath(); ctx.moveTo(-18, 0); ctx.lineTo(18, 0); ctx.stroke();
+        ctx.restore();
+      }
+    });
+  }
   if (kind === 'rakete-trail') {
     return getTexture('proj-rakete-trail', 64, 64, (ctx) => {
       const g = ctx.createRadialGradient(32, 32, 3, 32, 32, 30);
@@ -138,6 +156,7 @@ export class Projectile {
     this.damage = damage;
     this.splash = opts.splash ?? 0; // Flächenschaden-Radius am Einschlag
     this.sourceId = opts.sourceId ?? null; // für die Schadens-Statistik
+    this.frost = opts.frost ?? null; // Kryo-Turm: verlangsamt beim Treffer
     this.dead = false;
 
     this.mesh = makeSprite(kind, 1, def.solid);

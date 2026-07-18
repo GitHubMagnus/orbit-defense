@@ -99,6 +99,32 @@ const ICONS = {
     <line x1="27" y1="16" x2="32" y2="13" stroke="#1b2447" stroke-width="1.6"/>
     <rect x="18.4" y="15.5" width="3.2" height="8" rx="1" fill="#3ecf6a"/>
     <rect x="16" y="17.9" width="8" height="3.2" rx="1" fill="#3ecf6a"/></svg>`,
+  kryoturm: `<svg viewBox="0 0 40 40"><defs><radialGradient id="gKryo" cx="0.4" cy="0.35" r="0.9"><stop offset="0" stop-color="#fff"/><stop offset="0.5" stop-color="#b3f0ff"/><stop offset="1" stop-color="#4aa8d8"/></radialGradient></defs>
+    <g stroke="#1b2447" stroke-width="1.6" stroke-linejoin="round">
+    <rect x="10" y="30" width="20" height="6" rx="3" fill="#2b4460"/>
+    <rect x="26" y="15" width="11" height="4" rx="2" fill="#8ec8e6"/>
+    <rect x="26" y="21" width="11" height="4" rx="2" fill="#8ec8e6"/>
+    <rect x="13" y="16" width="14" height="14" rx="5" fill="#bfe6f5"/>
+    <circle cx="16" cy="20" r="5.5" fill="url(#gKryo)"/></g>
+    <g stroke="#eaffff" stroke-width="1.4" stroke-linecap="round">
+    <line x1="16" y1="16" x2="16" y2="24"/><line x1="12" y1="20" x2="20" y2="20"/>
+    <line x1="13" y1="17" x2="19" y2="23"/><line x1="19" y1="17" x2="13" y2="23"/></g></svg>`,
+  kettenblitz: `<svg viewBox="0 0 40 40"><defs><radialGradient id="gTes" cx="0.4" cy="0.35" r="0.9"><stop offset="0" stop-color="#fff"/><stop offset="0.5" stop-color="#d9b3ff"/><stop offset="1" stop-color="#7a52c8"/></radialGradient></defs>
+    <g stroke="#1b2447" stroke-width="1.6" stroke-linejoin="round">
+    <rect x="10" y="30" width="20" height="6" rx="3" fill="#2c2148"/>
+    <polygon points="16,30 17,18 23,18 24,30" fill="#6a5aa0"/>
+    <rect x="15" y="19" width="10" height="2.4" rx="1.2" fill="#c98adf"/>
+    <rect x="14.5" y="23" width="11" height="2.4" rx="1.2" fill="#c98adf"/>
+    <circle cx="20" cy="12" r="7" fill="url(#gTes)"/></g>
+    <path d="M20 12 L14 7 M20 12 L27 9 M20 12 L21 4" stroke="#f0e6ff" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>`,
+  railkanone: `<svg viewBox="0 0 40 40"><defs><linearGradient id="gRail" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="rgba(255,176,102,0.3)"/><stop offset="1" stop-color="#ffe0b0"/></linearGradient></defs>
+    <g stroke="#1b2447" stroke-width="1.6" stroke-linejoin="round">
+    <polygon points="7,36 10,30 30,30 33,36" fill="#38342b"/>
+    <rect x="12" y="21" width="15" height="10" rx="3" fill="#6f685a"/>
+    <rect x="20" y="19.5" width="18" height="3" rx="1.5" fill="#8a8172"/>
+    <rect x="20" y="24.5" width="18" height="3" rx="1.5" fill="#8a8172"/></g>
+    <rect x="20" y="22.4" width="15" height="2.6" rx="1.3" fill="url(#gRail)"/>
+    <circle cx="15" cy="26" r="1.8" fill="#ffb066" stroke="#1b2447" stroke-width="1"/></svg>`,
 };
 
 // Recycler-Werkzeug (Abriss mit Teilrückerstattung) — PvZ-Schaufel-Äquivalent
@@ -199,6 +225,11 @@ export class HUD {
     this.el.muteBtn.textContent = this.cb.sound?.muted ? '🔇' : '🔊';
     this.el.skipBtn.addEventListener('click', () => this.cb.onSkipWave());
     this.el.orbitalBtn.addEventListener('click', () => this.cb.onOrbital());
+
+    // Pause-Menü: Weiter / Neustart / Zurück zum Menü
+    document.getElementById('pause-resume').addEventListener('click', () => this.cb.onPause());
+    document.getElementById('pause-restart').addEventListener('click', () => this.cb.onRestart());
+    document.getElementById('pause-menu-btn').addEventListener('click', () => this.cb.onLevelSelect());
   }
 
   // ---------- Steuer-Zustände ----------
@@ -334,11 +365,12 @@ export class HUD {
       const starHtml = stars > 0
         ? `<span class="btn-stars">${'★'.repeat(stars)}${'<span class="star-empty">★</span>'.repeat(3 - stars)}</span>`
         : '';
+      const flavor = level.flavor ? `<span class="lvl-flavor">${level.flavor}</span>` : '';
       const btn = document.createElement('button');
       btn.className = 'level-btn' + (locked ? ' locked' : '');
       btn.innerHTML = locked
         ? `🔒 Level ${i + 1} — ${level.name}<span class="lock-hint">Gewinne Level ${i}, um freizuschalten</span>`
-        : `Level ${i + 1} — ${level.name}${starHtml}`;
+        : `Level ${i + 1} — ${level.name}${starHtml}${flavor}`;
       if (!locked) btn.addEventListener('click', () => this.cb.onStartLevel(i));
       this.el.levelSelect.appendChild(btn);
     });
@@ -693,6 +725,17 @@ export class HUD {
     el.style.top = `${y}px`;
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 1100);
+  }
+
+  // schwebender Text in Bildschirmmitte (z. B. Zins-Bonus)
+  floatCenter(text) {
+    const el = document.createElement('div');
+    el.className = 'float-text float-center';
+    el.textContent = text;
+    el.style.left = '50%';
+    el.style.top = '46%';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1300);
   }
 
   showScreen(name) {

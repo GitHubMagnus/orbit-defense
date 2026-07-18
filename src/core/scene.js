@@ -9,6 +9,13 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { LANES, COLS, CELL_X, laneZ, colX, CORE_X, SPAWN_X } from '../data/config.js';
 import { setSpriteCamera, spriteQuaternion, getTexture, spritePlane } from '../entities/meshFactory.js';
 
+// radialer Verlauf als Fill-Style (lokaler Helfer)
+function rgrad(ctx, x, y, r0, r1, stops) {
+  const g = ctx.createRadialGradient(x, y, r0, x, y, r1);
+  for (const [p, c] of stops) g.addColorStop(p, c);
+  return g;
+}
+
 export function createWorld(container) {
   const scene = new THREE.Scene();
 
@@ -492,6 +499,171 @@ export function createWorld(container) {
   let freighterTimer = 14;
   let freighterDir = 1;
 
+  // ---------- Spezialfelder: Energie-Knoten (boost) & Trümmerfelder (blocked) ----------
+  const boostTex = getTexture('cell-boost', 192, 192, (ctx) => {
+    const c = 96;
+    ctx.strokeStyle = 'rgba(255,210,63,0.9)'; ctx.lineWidth = 8; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    for (let i = 0; i <= 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+      const x = c + Math.cos(a) * 74, y = c + Math.sin(a) * 74;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.fillStyle = rgrad(ctx, c, c, 8, 74, [
+      [0, 'rgba(255,235,150,0.5)'], [0.6, 'rgba(255,200,60,0.22)'], [1, 'rgba(255,180,50,0)'],
+    ]);
+    ctx.beginPath(); ctx.arc(c, c, 74, 0, Math.PI * 2); ctx.fill();
+    // Blitz-Symbol
+    ctx.fillStyle = '#fff3b0';
+    ctx.beginPath();
+    ctx.moveTo(c + 10, c - 34); ctx.lineTo(c - 16, c + 6); ctx.lineTo(c - 3, c + 6);
+    ctx.lineTo(c - 10, c + 36); ctx.lineTo(c + 18, c - 8); ctx.lineTo(c + 3, c - 8);
+    ctx.closePath(); ctx.fill();
+  }, { additive: true });
+
+  const blockedTex = getTexture('cell-blocked', 192, 192, (ctx) => {
+    // Trümmerhaufen (blockiert das Feld)
+    const bumps = [1, 0.8, 1.05, 0.85, 1.1, 0.82, 1.02, 0.88];
+    for (const [bx, by, br, fill] of [[80, 112, 44, '#5a564c'], [122, 96, 32, '#6d685c'], [96, 132, 26, '#47433b']]) {
+      ctx.save(); ctx.translate(bx, by);
+      ctx.beginPath();
+      for (let k = 0; k <= bumps.length; k++) {
+        const a = (k % bumps.length) / bumps.length * Math.PI * 2;
+        const rr2 = br * bumps[k % bumps.length];
+        k === 0 ? ctx.moveTo(Math.cos(a) * rr2, Math.sin(a) * rr2) : ctx.lineTo(Math.cos(a) * rr2, Math.sin(a) * rr2);
+      }
+      ctx.closePath();
+      ctx.fillStyle = fill; ctx.fill();
+      ctx.strokeStyle = '#1b2447'; ctx.lineWidth = 6; ctx.lineJoin = 'round'; ctx.stroke();
+      ctx.restore();
+    }
+    // Warn-Kreuz
+    ctx.strokeStyle = 'rgba(255,90,90,0.85)'; ctx.lineWidth = 7; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(70, 74); ctx.lineTo(122, 126); ctx.moveTo(122, 74); ctx.lineTo(70, 126); ctx.stroke();
+  });
+
+  const specialGroup = new THREE.Group();
+  scene.add(specialGroup);
+  const boostMeshes = [];
+  function setSpecialCells(cells) {
+    while (specialGroup.children.length) specialGroup.remove(specialGroup.children[0]);
+    boostMeshes.length = 0;
+    for (const cell of cells ?? []) {
+      const x = colX(cell.col), z = laneZ(cell.lane);
+      if (cell.type === 'boost') {
+        const m = new THREE.Mesh(
+          new THREE.PlaneGeometry(CELL_X - 0.4, 3.8),
+          new THREE.MeshBasicMaterial({ map: boostTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })
+        );
+        m.rotation.x = -Math.PI / 2;
+        m.position.set(x, 0.04, z);
+        m.renderOrder = -2;
+        specialGroup.add(m);
+        boostMeshes.push(m);
+      } else if (cell.type === 'blocked') {
+        const m = new THREE.Mesh(
+          new THREE.PlaneGeometry(3.2, 3.2),
+          new THREE.MeshBasicMaterial({ map: blockedTex, transparent: true, depthWrite: false })
+        );
+        m.position.set(x, 1.2, z);
+        m.quaternion.copy(spriteQuaternion());
+        specialGroup.add(m);
+      }
+    }
+  }
+
+  // ---------- driftende Nebelschwaden (Tiefe & Atmosphäre) ----------
+  const nebulae = [];
+  const nebulaColors = ['rgba(120,80,220,', 'rgba(60,190,220,', 'rgba(255,90,180,', 'rgba(70,220,190,'];
+  for (let i = 0; i < 4; i++) {
+    const col = nebulaColors[i % nebulaColors.length];
+    const neb = spritePlane(`nebula-${i}`, 256, 256, 40 + i * 8, 34 + i * 6, (ctx) => {
+      for (let b = 0; b < 5; b++) {
+        const x = 60 + Math.random() * 136, y = 60 + Math.random() * 136;
+        const r = 40 + Math.random() * 70;
+        const g = ctx.createRadialGradient(x, y, 4, x, y, r);
+        g.addColorStop(0, col + '0.10)');
+        g.addColorStop(1, col + '0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      }
+    }, { additive: true });
+    neb.position.set(-40 + Math.random() * 80, -12 - Math.random() * 6, -60 - i * 12);
+    neb.quaternion.copy(spriteQuaternion());
+    neb.material.opacity = 0.5;
+    neb.userData.drift = 0.25 + Math.random() * 0.4;
+    neb.userData.phase = Math.random() * Math.PI * 2;
+    scene.add(neb);
+    nebulae.push(neb);
+  }
+
+  // ---------- Vordergrund-Sternenstaub (Parallaxe nahe der Kamera) ----------
+  const dustGeo = new THREE.BufferGeometry();
+  const dustN = 90;
+  const dustPos = new Float32Array(dustN * 3);
+  for (let i = 0; i < dustN; i++) {
+    dustPos[i * 3] = (Math.random() - 0.5) * 70;
+    dustPos[i * 3 + 1] = 2 + Math.random() * 20;
+    dustPos[i * 3 + 2] = 8 + Math.random() * 24;
+  }
+  dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+  const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({
+    color: 0xbfe8ff, size: 0.35, transparent: true, opacity: 0.5, depthWrite: false,
+  }));
+  scene.add(dust);
+
+  // ---------- animiertes Himmelsobjekt als Weltobjekt (dreht/kreist) ----------
+  function skyAccentTexture(themeIndex) {
+    return getTexture(`sky-accent-${themeIndex}`, 256, 256, (ctx) => {
+      const c = 128;
+      if (themeIndex === 1) {
+        // Wurmloch-Spirale
+        for (let arm = 0; arm < 3; arm++) {
+          ctx.strokeStyle = ['rgba(255,140,235,0.9)', 'rgba(140,200,255,0.8)', 'rgba(255,220,140,0.7)'][arm];
+          ctx.lineWidth = 8 - arm * 1.5; ctx.lineCap = 'round';
+          ctx.beginPath();
+          for (let t = 0; t <= 1; t += 0.03) {
+            const ang = arm * (Math.PI * 2 / 3) + t * 4.8;
+            const r = 8 + t * 110;
+            const x = c + Math.cos(ang) * r, y = c + Math.sin(ang) * r;
+            t === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+        const core = rgrad(ctx, c, c, 2, 28, [[0, '#fff'], [0.55, '#ffb8f2'], [1, 'rgba(255,120,230,0)']]);
+        ctx.fillStyle = core; ctx.beginPath(); ctx.arc(c, c, 28, 0, Math.PI * 2); ctx.fill();
+      } else if (themeIndex === 2) {
+        // Akkretionsscheibe
+        ctx.save(); ctx.translate(c, c);
+        const disk = ctx.createLinearGradient(-116, 0, 116, 0);
+        disk.addColorStop(0, 'rgba(255,90,50,0.1)'); disk.addColorStop(0.5, 'rgba(255,170,80,0.95)'); disk.addColorStop(1, 'rgba(255,90,50,0.1)');
+        ctx.strokeStyle = disk; ctx.lineWidth = 20;
+        ctx.beginPath(); ctx.ellipse(0, 0, 108, 34, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = '#050208'; ctx.beginPath(); ctx.arc(c, c, 40, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(255,200,120,0.9)'; ctx.lineWidth = 4; ctx.stroke();
+      } else {
+        // Mond mit Kratern
+        const mg = rgrad(ctx, c - 24, c - 24, 6, 100, [[0, '#f4f0ff'], [1, '#9a93c9']]);
+        ctx.fillStyle = mg; ctx.beginPath(); ctx.arc(c, c, 88, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#1b2447'; ctx.lineWidth = 6; ctx.stroke();
+        ctx.fillStyle = 'rgba(90,80,140,0.5)';
+        for (const [kx, ky, kr] of [[100, 150, 20], [150, 100, 14], [140, 165, 11], [80, 90, 12]]) {
+          ctx.beginPath(); ctx.arc(kx, ky, kr, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+    }, { additive: themeIndex !== 0 });
+  }
+  const skyAccent = new THREE.Mesh(
+    new THREE.PlaneGeometry(16, 16),
+    new THREE.MeshBasicMaterial({ map: skyAccentTexture(0), transparent: true, depthWrite: false })
+  );
+  skyAccent.position.set(-34, -4, -56);
+  skyAccent.quaternion.copy(spriteQuaternion());
+  scene.add(skyAccent);
+  let skyAccentSpin = 0; // 0 = Mond (bob), sonst Rotation
+
   // Unsichtbare Ebene fürs Maus-Picking
   const pickPlane = new THREE.Mesh(
     new THREE.PlaneGeometry(300, 300),
@@ -517,7 +689,7 @@ export function createWorld(container) {
   const railBase = new THREE.Color(0x11607a);
   const railBright = new THREE.Color(0x2f96b8);
 
-  // Theme wechseln (pro Level): Himmel, Lane-Farben, Streifen-Farben
+  // Theme wechseln (pro Level): Himmel, Lane-Farben, Streifen-Farben, Himmelsobjekt
   function applyTheme(themeIndex) {
     const i = themeIndex % THEMES.length;
     scene.background = skyTexture(i);
@@ -528,6 +700,12 @@ export function createWorld(container) {
     });
     railBase.set(THEMES[i].rail);
     railBright.set(THEMES[i].railBright);
+    // animiertes Himmelsobjekt passend zum Sektor
+    skyAccent.material.map = skyAccentTexture(i);
+    skyAccent.material.blending = i === 0 ? THREE.NormalBlending : THREE.AdditiveBlending;
+    skyAccent.material.needsUpdate = true;
+    skyAccentSpin = i === 0 ? 0 : (i === 1 ? 0.5 : 0.28); // Mond ruht, Wurmloch/Loch drehen
+    skyAccent.rotation.z = 0;
   }
 
   function updateEnvironment(dt, time) {
@@ -570,6 +748,37 @@ export function createWorld(container) {
       if (rock.position.x < -65) rock.position.x = 75;
     }
 
+    // Nebelschwaden driften und atmen
+    for (const neb of nebulae) {
+      neb.position.x += neb.userData.drift * dt;
+      neb.material.opacity = 0.4 + Math.sin(time * 0.3 + neb.userData.phase) * 0.18;
+      if (neb.position.x > 55) neb.position.x = -55;
+    }
+
+    // Vordergrund-Sternenstaub sinkt langsam (Parallaxe)
+    const dp = dust.geometry.attributes.position;
+    for (let i = 0; i < dp.count; i++) {
+      let y = dp.getY(i) - dt * 1.2;
+      let x = dp.getX(i) + dt * 0.6;
+      if (y < 1) { y = 22; x = (Math.random() - 0.5) * 70; }
+      dp.setY(i, y); dp.setX(i, x);
+    }
+    dp.needsUpdate = true;
+    dust.material.opacity = 0.4 + Math.sin(time * 1.3) * 0.15;
+
+    // Energie-Knoten-Felder pulsieren golden
+    for (const m of boostMeshes) {
+      m.material.opacity = 0.55 + Math.sin(time * 2.6) * 0.3;
+    }
+
+    // Himmelsobjekt: Mond wippt sanft, Wurmloch/Schwarzes Loch rotieren
+    if (skyAccentSpin > 0) {
+      skyAccent.rotation.z += dt * skyAccentSpin;
+    } else {
+      skyAccent.position.y = -4 + Math.sin(time * 0.35) * 1.2;
+      skyAccent.position.x = -34 + Math.cos(time * 0.35) * 1.5;
+    }
+
     // Frachter-Konvoi zieht langsam vorbei
     if (freighter.visible) {
       freighter.position.x += dt * 4.5 * freighterDir;
@@ -605,5 +814,5 @@ export function createWorld(container) {
     }
   }
 
-  return { scene, camera, renderer, composer, pickPlane, updateEnvironment, applyTheme };
+  return { scene, camera, renderer, composer, pickPlane, updateEnvironment, applyTheme, setSpecialCells };
 }

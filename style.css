@@ -71,6 +71,25 @@ html, body {
 }
 .story-text em { color: var(--cyan-bright); font-style: normal; }
 
+.game-tagline {
+  font-size: clamp(0.95rem, 2vw, 1.2rem);
+  letter-spacing: 0.14em;
+  color: var(--cyan-bright);
+  opacity: 0.85;
+  margin-top: -14px;
+  text-shadow: 0 0 14px rgba(0, 229, 255, 0.35);
+  font-style: italic;
+}
+.lvl-flavor {
+  display: block;
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  opacity: 0.6;
+  font-style: italic;
+  margin-top: 3px;
+  font-weight: 400;
+}
+
 .level-btn {
   padding: 14px 42px;
   font-size: 1.1rem;
@@ -248,15 +267,27 @@ html, body {
 /* ---------- Pause & Treffer-Vignette ---------- */
 #pause-overlay {
   position: fixed; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(4, 8, 20, 0.55);
-  z-index: 28; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 28px;
+  background: rgba(4, 8, 20, 0.7);
+  z-index: 28; pointer-events: auto;
 }
-#pause-overlay span {
+#pause-overlay .pause-title {
   font-size: 3rem; letter-spacing: 0.5em;
   color: var(--cyan-bright);
   text-shadow: 0 0 24px rgba(0, 229, 255, 0.6);
 }
+.pause-menu { display: flex; flex-direction: column; gap: 12px; width: min(300px, 80vw); }
+.pause-menu .level-btn { width: 100%; text-align: center; }
+/* permanente, dezente Kino-Vignette für Deep-Space-Atmosphäre */
+#cinema-vignette {
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 15;
+  background:
+    radial-gradient(ellipse at 50% 42%, rgba(0,0,0,0) 46%, rgba(2, 4, 12, 0.55) 100%),
+    linear-gradient(rgba(6, 10, 30, 0.12), rgba(2, 4, 12, 0.28));
+}
+
 #hit-vignette {
   position: fixed; inset: 0;
   pointer-events: none; z-index: 26; opacity: 0;
@@ -579,4 +610,17 @@ html, body {
 @keyframes floatUp {
   from { opacity: 1; transform: translateY(0); }
   to { opacity: 0; transform: translateY(-46px); }
+}
+
+/* Zins-Bonus mittig */
+.float-text.float-center {
+  font-size: 1.5rem;
+  transform: translateX(-50%);
+  z-index: 27;
+  animation: floatCenterUp 1.3s ease-out forwards;
+}
+@keyframes floatCenterUp {
+  0% { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.8); }
+  25% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-40px) scale(1); }
 }

@@ -53,11 +53,21 @@
       <path d="M6 33 L10 30 M34 33 L30 30 M20 36 L20 32.5" stroke="#ff8070" stroke-width="1.8" stroke-linecap="round"/></svg>
     </button>
     <div id="wave-banner" class="hidden"></div>
-    <div id="pause-overlay" class="hidden"><span>PAUSE</span></div>
+    <div id="pause-overlay" class="hidden">
+      <span class="pause-title">PAUSE</span>
+      <div class="pause-menu">
+        <button id="pause-resume" class="level-btn">▶ Weiter</button>
+        <button id="pause-restart" class="level-btn secondary">↻ Level neu starten</button>
+        <button id="pause-menu-btn" class="level-btn secondary">⌂ Zurück zum Menü</button>
+      </div>
+    </div>
     <div id="bottom-bar"></div>
     <div id="tooltip" class="hidden"></div>
     <div id="build-menu" class="hidden"></div>
   </div>
+
+  <!-- cinematische Vignette (permanent, dezent) -->
+  <div id="cinema-vignette"></div>
 
   <!-- roter Puls am Bildschirmrand bei Integritätsverlust -->
   <div id="hit-vignette"></div>
@@ -65,12 +75,13 @@
   <!-- Start-Screen -->
   <div id="start-screen" class="screen">
     <h1 class="game-title">ORBIT DEFENSE</h1>
+    <p class="game-tagline">In der Tiefe des Alls hält nur eine Station die Dunkelheit auf.</p>
     <p class="story-text">
-      Die Orbitalstation <em>Helios-Warte</em> kreist als letzter Außenposten über dem Planeten Nereon.
-      Durch die offenen Andockkorridore treiben Asteroiden, herrenloser Schrott und feindliche
-      Alien-Drohnen direkt auf den Reaktorkern zu. Du kommandierst die Verteidigungssysteme.
-      Sammle Energie-Blitze und Power-ups, platziere Türme in den Korridoren, rüste sie aus
-      und halte die Station, bis der Sektor gesichert ist.
+      Am äußersten Rand des bekannten Raums treibt die Orbitalstation <em>Helios-Warte</em> —
+      der letzte Wächter vor der Leere. Durch ihre offenen Andockkorridore drängen Asteroiden,
+      herrenloser Schrott und die Schwärme einer fremden Intelligenz auf den Reaktorkern zu.
+      Sammle Energie, errichte deine Verteidigungslinien, rüste sie auf und halte die Station,
+      Welle um Welle, bis der Sektor gesichert ist.
     </p>
     <div id="level-select"></div>
     <p id="skill-line" class="hidden"></p>

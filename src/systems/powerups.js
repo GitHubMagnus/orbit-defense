@@ -32,6 +32,13 @@ export const POWERUP_TYPES = {
     color: 0x3ecf6a,
     weight: 3,
   },
+  magnet: {
+    id: 'magnet',
+    name: 'ENERGIE-MAGNET',
+    description: 'Zieht alle Energie-Blitze auf dem Feld auf einmal ein!',
+    color: 0x40e0ff,
+    weight: 3,
+  },
 };
 
 function drawToken(ctx, ringColor, symbol) {
@@ -82,6 +89,30 @@ function tokenPlane(type) {
         c2.beginPath(); c2.arc(c, c, 30, 0.8, 3.6); c2.stroke();
         c2.fillStyle = '#ffffff';
         c2.beginPath(); c2.arc(c, c, 8, 0, Math.PI * 2); c2.fill();
+      });
+    });
+  }
+  if (type === 'magnet') {
+    return spritePlane('pu-magnet', 192, 192, 1.9, 1.9, (ctx) => {
+      drawToken(ctx, 'rgba(64,224,255,ALPHA)', (c2, c) => {
+        // Hufeisen-Magnet
+        c2.lineWidth = 15; c2.lineCap = 'butt';
+        c2.strokeStyle = '#40e0ff';
+        c2.beginPath(); c2.arc(c, c - 2, 24, Math.PI, 0); c2.stroke();
+        c2.beginPath(); c2.moveTo(c - 24, c - 2); c2.lineTo(c - 24, c + 26); c2.stroke();
+        c2.beginPath(); c2.moveTo(c + 24, c - 2); c2.lineTo(c + 24, c + 26); c2.stroke();
+        // Pol-Kappen
+        c2.fillStyle = '#eaffff';
+        c2.fillRect(c - 31, c + 22, 14, 8);
+        c2.fillRect(c + 17, c + 22, 14, 8);
+        // eingezogene Blitze
+        c2.fillStyle = '#ffd23f';
+        for (const [bx, by] of [[c - 34, c - 20], [c + 34, c - 18]]) {
+          c2.beginPath();
+          c2.moveTo(bx + 3, by - 8); c2.lineTo(bx - 4, by + 2); c2.lineTo(bx, by + 2);
+          c2.lineTo(bx - 3, by + 10); c2.lineTo(bx + 5, by - 1); c2.lineTo(bx + 1, by - 1);
+          c2.closePath(); c2.fill();
+        }
       });
     });
   }
@@ -137,8 +168,8 @@ export class PowerUpSystem {
   }
 
   spawn() {
-    const roll = Math.random() * 10;
-    const type = roll < 4 ? 'ueberladung' : roll < 7 ? 'emp' : 'reparatur';
+    const roll = Math.random() * 13;
+    const type = roll < 4 ? 'ueberladung' : roll < 7 ? 'emp' : roll < 10 ? 'reparatur' : 'magnet';
     const lane = Math.floor(Math.random() * LANES);
     const col = 1 + Math.floor(Math.random() * (COLS - 2));
 

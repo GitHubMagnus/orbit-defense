@@ -32,9 +32,9 @@ export const SKILLS = {
 
 // Belohnungen pro gewonnenem Level (Index = Level-Index)
 export const LEVEL_REWARDS = [
-  { towers: ['ionenpuls'], skills: ['notreserve'] },        // Sieg in Level 1
-  { towers: ['raketenwerfer'], skills: ['schnellkuehlung'] }, // Sieg in Level 2
-  { towers: ['reparaturdrohne'], skills: ['ladekerne'] },   // Sieg in Level 3
+  { towers: ['ionenpuls', 'kryoturm'], skills: ['notreserve'] },        // Sieg in Level 1
+  { towers: ['raketenwerfer', 'kettenblitz'], skills: ['schnellkuehlung'] }, // Sieg in Level 2
+  { towers: ['reparaturdrohne', 'railkanone'], skills: ['ladekerne'] },   // Sieg in Level 3
 ];
 
 function defaultProgress() {

@@ -24,6 +24,8 @@ export class Defender {
     this.fireTimer = data.fireInterval ? data.fireInterval * 0.5 : 0;
     this.generateTimer = data.generateInterval ?? 0;
     this.pulseTimer = data.pulseInterval ? data.pulseInterval * 0.5 : 0;
+    this.chainTimer = data.chainInterval ? data.chainInterval * 0.5 : 0;
+    this.beamTimer = data.beamInterval ? data.beamInterval * 0.5 : 0;
     this.healFxTimer = 0;
     this.sparkTimer = 0;
     this.recoilT = 0; // kurzer Rückstoß-Hüpfer nach dem Schuss
@@ -32,7 +34,7 @@ export class Defender {
     this.group = built.group;
     this.animateMesh = built.animate;
     this.setDamageFn = built.setDamage ?? (() => {});
-    this.setLevelFn = built.setLevel ?? (() => {});
+    this.setUpgradeFn = built.setUpgrade ?? (() => {});
     this.group.position.set(colX(col), 0, laneZ(lane));
   }
 
@@ -45,21 +47,34 @@ export class Defender {
   }
 
   // ---------- effektive Stats je Ausbau-Pfad ----------
+  // Energie-Knoten-Feld (boosted): +30 % Tempo -> Intervalle / 1.3
+
+  get boostMul() {
+    return this.boosted ? 1 / 1.3 : 1;
+  }
 
   get damage() {
     return (this.data.damage ?? 0) * 1.5 ** this.upA;
   }
 
   get fireInterval() {
-    return (this.data.fireInterval ?? 1) * 0.75 ** this.upB;
+    return (this.data.fireInterval ?? 1) * 0.75 ** this.upB * this.boostMul;
   }
 
   get pulseInterval() {
-    return (this.data.pulseInterval ?? 1) * 0.75 ** this.upB;
+    return (this.data.pulseInterval ?? 1) * 0.75 ** this.upB * this.boostMul;
   }
 
   get generateInterval() {
-    return (this.data.generateInterval ?? 1) * 0.75 ** this.upB;
+    return (this.data.generateInterval ?? 1) * 0.75 ** this.upB * this.boostMul;
+  }
+
+  get chainInterval() {
+    return (this.data.chainInterval ?? 1) * 0.75 ** this.upB * this.boostMul;
+  }
+
+  get beamInterval() {
+    return (this.data.beamInterval ?? 1) * 0.75 ** this.upB * this.boostMul;
   }
 
   get slowFactor() {
@@ -111,7 +126,7 @@ export class Defender {
     const newMax = this.computeMaxHp();
     this.hp += newMax - this.maxHp;
     this.maxHp = newMax;
-    this.setLevelFn(this.level);
+    this.setUpgradeFn(this.upA, this.upB);
     this.updateDamageStage();
     return true;
   }
@@ -177,12 +192,12 @@ export class Defender {
           this.group.userData.muzzleOffset ?? new THREE.Vector3(0, 1.8, 0)
         );
         ctx.spawnProjectile(d.projectile, muzzle, target, this.damage, {
-          splash: d.splash, sourceId: d.id,
+          splash: d.splash, sourceId: d.id, frost: d.frost,
         });
         // Feuer-Feedback: Rückstoß + Mündungsblitz + Sound
         this.recoilT = 0.15;
         const flashColor = d.projectile === 'plasma' ? 0xff9be4
-          : d.projectile === 'rakete' ? 0xffb46b : 0x7df3ff;
+          : d.projectile === 'rakete' ? 0xffb46b : d.projectile === 'frost' ? 0xb3f0ff : 0x7df3ff;
         ctx.particles.muzzle(muzzle, flashColor);
         ctx.sfx?.shot(d.projectile);
       }
@@ -232,17 +247,71 @@ export class Defender {
           );
         }
       }
+    } else if (d.behavior === 'chain') {
+      // Kettenblitz: trifft vordersten Gegner, springt zu nahen weiteren
+      this.chainTimer -= ctx.overcharged ? dt * 2 : dt;
+      const target = this.findTarget(ctx.enemies);
+      if (target && this.chainTimer <= 0) {
+        this.chainTimer = this.chainInterval;
+        this.recoilT = 0.15;
+        ctx.sfx?.shot('pulse');
+        const muzzle = this.position.clone().add(new THREE.Vector3(0, 1.9, 0));
+        let prev = muzzle;
+        let cur = target;
+        const hitSet = new Set();
+        let dmg = this.damage;
+        for (let jump = 0; jump <= (d.chainCount ?? 3) && cur; jump++) {
+          hitSet.add(cur);
+          cur.takeDamage(dmg, 'pulse');
+          ctx.recordDamage?.(d.id, dmg);
+          const cp = cur.position.clone().add(new THREE.Vector3(0, 1.3, 0));
+          ctx.particles.arc(prev, cp, 0xd9b3ff, 0.16, 0.08);
+          ctx.particles.burstImpact(cp, 0xb388ff);
+          prev = cp;
+          dmg *= d.chainFalloff ?? 0.65;
+          // nächsten, noch nicht getroffenen Gegner im Sprungradius suchen
+          let next = null, nd = Infinity;
+          for (const e of ctx.enemies) {
+            if (e.dead || hitSet.has(e) || e.cloaked) continue;
+            const dd = e.position.distanceTo(cur.position);
+            if (dd <= (d.chainRange ?? 4.5) && dd < nd) { nd = dd; next = e; }
+          }
+          cur = next;
+        }
+      }
+    } else if (d.behavior === 'beam') {
+      // Railkanone: panzerbrechender Linienschuss über die ganze Lane
+      this.beamTimer -= ctx.overcharged ? dt * 2 : dt;
+      const inLane = ctx.enemies.filter(
+        (e) => !e.dead && e.lane === this.lane && e.position.x > this.position.x - 1
+          && e.position.x - this.position.x <= d.range
+      );
+      if (inLane.length > 0 && this.beamTimer <= 0) {
+        this.beamTimer = this.beamInterval;
+        this.recoilT = 0.2;
+        ctx.sfx?.shot('rakete');
+        const muzzle = this.position.clone().add(new THREE.Vector3(0.6, 1.7, 0));
+        const far = new THREE.Vector3(this.position.x + d.range, 1.7, this.position.z);
+        ctx.particles.arc(muzzle, far, 0xffc08a, 0.22, 0.14);
+        ctx.particles.muzzle(muzzle, 0xffb066);
+        for (const e of inLane) {
+          e.takeDamage(this.damage, 'rail'); // 'rail' ist in keinem resist -> voller Schaden
+          ctx.recordDamage?.(d.id, this.damage);
+          ctx.particles.burstImpact(e.position.clone().add(new THREE.Vector3(0, 1.3, 0)), 0xffb066);
+        }
+      }
     } else if (d.behavior === 'blocker') {
       // Ausbau-Pfad B: Schild repariert sich selbst
       if (this.selfRepair > 0) this.heal(this.selfRepair * dt);
     }
   }
 
-  // Vorderster Gegner in derselben Lane innerhalb der Reichweite
+  // Vorderster Gegner in derselben Lane innerhalb der Reichweite.
+  // Getarnte Phantome (cloaked) können von Einzelziel-Türmen nicht anvisiert werden.
   findTarget(enemies) {
     let best = null;
     for (const e of enemies) {
-      if (e.lane !== this.lane || e.dead) continue;
+      if (e.lane !== this.lane || e.dead || e.cloaked) continue;
       const dx = e.position.x - this.position.x;
       if (dx < -1 || dx > this.data.range) continue;
       if (!best || e.position.x < best.position.x) best = e;

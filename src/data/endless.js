@@ -6,13 +6,21 @@ const POOL = [
   { type: 'schwarmling', cost: 1, min: 2 },
   { type: 'schrottbrocken', cost: 2, min: 2 },
   { type: 'alienDrohne', cost: 2, min: 3 },
+  { type: 'sprengdrohne', cost: 2, min: 3 },
   { type: 'berstbrocken', cost: 2.5, min: 4 },
   { type: 'phasenspringer', cost: 3, min: 5 },
+  { type: 'phantom', cost: 3, min: 5 },
   { type: 'alienZerstoerer', cost: 4, min: 6 },
-  { type: 'panzerwalze', cost: 6, min: 7 },
+  { type: 'aegisTraeger', cost: 5, min: 7 },
+  { type: 'panzerwalze', cost: 6, min: 8 },
 ];
 
-export const ENDLESS_LEVEL = { name: 'Ansturm', endless: true };
+export const ENDLESS_LEVEL = {
+  name: 'Ansturm',
+  flavor: 'Endlose Nacht — halte durch, solange du kannst',
+  endless: true,
+  // Ansturm bewusst ohne Spezialfelder — freie Bauflächen für lange Läufe
+};
 
 // n ist 1-basiert (Welle 1, 2, 3, ...)
 export function makeEndlessWave(n) {

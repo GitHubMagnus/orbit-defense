@@ -2,7 +2,9 @@
 // blockierende Verteidiger an, Zerstörer schießen zusätzlich auf Distanz.
 
 import * as THREE from 'three';
-import { buildEnemyMesh, spriteQuaternion, makeEliteAura, makeHitFlash } from './meshFactory.js';
+import {
+  buildEnemyMesh, spriteQuaternion, makeEliteAura, makeHitFlash, makeEnemyShield,
+} from './meshFactory.js';
 import { SPAWN_X, CORE_X, laneZ } from '../data/config.js';
 
 export class Enemy {
@@ -18,6 +20,9 @@ export class Enemy {
     this.reachedCore = false;
     this.slowFactor = 0;       // wird pro Frame von Traktorstrahlen gesetzt
     this.empUntil = 0;         // EMP-Power-up: gelähmt bis Zeitpunkt
+    this.frostUntil = 0;       // Kryo-Turm: verlangsamt bis Zeitpunkt
+    this.frostFactor = 0;
+    this.cloaked = false;      // Phantom: getarnt (nicht anvisierbar)
     this.rangedTimer = data.rangedAttack ? data.rangedAttack.interval * 0.6 : 0;
     this.minionTimer = data.spawnMinions ? data.spawnMinions.interval : 0;
     this.teleportTimer = data.teleport ? data.teleport.interval * 0.8 : 0;
@@ -27,6 +32,13 @@ export class Enemy {
     this.group = built.group;
     this.animateMesh = built.animate;
     this.setWeakFn = built.setWeak ?? null;
+    this.setCloakFn = built.setCloak ?? null;
+    this.setAegisFn = built.setAegisActive ?? null;
+
+    // Verhaltens-Zustände der neuen Gegner
+    this.protected = false;          // Aegis-Schutzfeld (halber Schaden)
+    this.cloakTimer = data.cloak ? data.cloak.visible : 0;
+    this.exploded = false;           // Sprengdrohne
     this.group.scale.setScalar(data.scale * (this.elite ? 1.15 : 1));
     this.group.position.set(SPAWN_X, 0, laneZ(lane));
 
@@ -49,6 +61,20 @@ export class Enemy {
     this.isWeak = false;
     this.weakCycleT = 0;
 
+    // Energie-Schild: absorbiert Schaden zuerst. Nur Ionenpuls ('pulse') und
+    // EMP ('emp') brechen es 4-fach schnell -> gezieltes Konterspiel.
+    // Schilde tragen nur bestimmte Gegnertypen (Panzerwalze, Aegis-geschützte),
+    // NICHT jeder Elite — sonst hat irgendwann alles ein Schild.
+    this.shieldMax = data.shield ?? 0;
+    this.shield = this.shieldMax;
+    if (this.shieldMax > 0) {
+      this.shieldMesh = makeEnemyShield(2.9 * data.scale);
+      this.shieldMesh.quaternion.copy(spriteQuaternion());
+      this.shieldMesh.position.y = 1.5;
+      this.group.add(this.shieldMesh);
+      this.shieldFlashT = 0;
+    }
+
     // HP-Balken (zur festen Kamera orientiert)
     this.hpBar = makeHpBar();
     this.hpBar.position.y = data.hpBarHeight ?? 3.7;
@@ -60,22 +86,56 @@ export class Enemy {
     return this.group.position;
   }
 
+  get shieldRatio() {
+    return this.shieldMax > 0 ? Math.max(0, this.shield / this.shieldMax) : 0;
+  }
+
+  applyFrost(frost, now) {
+    this.frostFactor = frost.factor;
+    this.frostUntil = now + frost.duration;
+  }
+
   // source = Projektil-/Effektart; gepanzerte Gegner widerstehen bestimmten Quellen
+  // Rückgabe true, wenn (nur) das Schild getroffen wurde (für Treffer-Optik).
   takeDamage(amount, source) {
     const resist = source ? this.data.resist?.[source] : undefined;
     if (resist !== undefined) amount *= resist;
+    if (this.protected) amount *= 0.5; // Aegis-Schutzfeld
     if (this.isWeak) amount *= 2; // Boss-Schwächephase: Schlund offen
-    this.hp -= amount;
-    this.flashT = 0.08;
-    this.hitFlash.visible = true;
+
+    // Schild fängt Schaden zuerst ab; Ionenpuls/EMP durchdringen es 4-fach
+    let hitShieldOnly = false;
+    if (this.shield > 0) {
+      const shieldMult = (source === 'pulse' || source === 'emp') ? 4 : 1;
+      const toShield = amount * shieldMult;
+      if (toShield < this.shield) {
+        this.shield -= toShield;
+        amount = 0;
+        hitShieldOnly = true;
+      } else {
+        // Schild bricht: Überschuss (zurückgerechnet) trifft die Hülle
+        const overflow = (toShield - this.shield) / shieldMult;
+        this.shield = 0;
+        amount = overflow;
+      }
+      this.shieldFlashT = 0.12;
+    }
+
+    if (amount > 0) {
+      this.hp -= amount;
+      this.flashT = 0.08;
+      this.hitFlash.visible = true;
+    }
+
     if (this.hp <= 0) {
       this.dead = true;
-    } else {
+    } else if (amount > 0) {
       this.hpBar.visible = true;
       const ratio = Math.max(0, this.hp / this.maxHp);
       this.hpBar.userData.fill.scale.x = ratio;
       this.hpBar.userData.fill.position.x = -(1 - ratio) * 0.9;
     }
+    return hitShieldOnly;
   }
 
   update(dt, time, ctx) {
@@ -90,6 +150,20 @@ export class Enemy {
     // Elite-Aura pulsiert
     if (this.eliteAura) {
       this.eliteAura.material.opacity = 0.6 + Math.sin(time * 5) * 0.3;
+    }
+
+    // Schild: sichtbar solange geladen, blitzt bei Treffern kurz auf
+    if (this.shieldMesh) {
+      if (this.shield <= 0) {
+        this.shieldMesh.visible = false;
+      } else {
+        this.shieldMesh.visible = true;
+        this.shieldMesh.rotation.z += dt * 0.6;
+        const base = 0.35 + this.shieldRatio * 0.4 + Math.sin(time * 3) * 0.1;
+        const flash = this.shieldFlashT > 0 ? 0.5 : 0;
+        this.shieldMesh.material.opacity = Math.min(1, base + flash);
+        if (this.shieldFlashT > 0) this.shieldFlashT -= dt;
+      }
     }
 
     // Boss-Schwächephase takten
@@ -107,8 +181,25 @@ export class Enemy {
       }
     }
 
+    // Phantom: periodisch tarnen / enttarnen
+    if (this.data.cloak) {
+      this.cloakTimer -= dt;
+      if (this.cloakTimer <= 0) {
+        this.cloaked = !this.cloaked;
+        this.cloakTimer = this.cloaked ? this.data.cloak.hidden : this.data.cloak.visible;
+        this.setCloakFn?.(this.cloaked);
+        ctx.particles.flash(this.position.clone().add(new THREE.Vector3(0, 1.4, 0)), 0x9b8cff);
+      }
+    }
+
+    // Aegis-Träger: Schutzfeld-Indikator (Schutz wird zentral im Game gesetzt)
+    if (this.setAegisFn) this.setAegisFn(!this.dead);
+
     if (time < this.empUntil) {
       this.slowFactor = Math.max(this.slowFactor, 0.85); // EMP: fast stillgelegt
+    }
+    if (time < this.frostUntil) {
+      this.slowFactor = Math.max(this.slowFactor, this.frostFactor); // Kryo-Verlangsamung
     }
     const speed = this.data.speed * this.speedMul * (1 - this.slowFactor);
     this.slowFactor = 0; // wird jeden Frame neu gesetzt
@@ -116,7 +207,23 @@ export class Enemy {
     // Blockierenden Verteidiger direkt vor uns suchen (gleiche Lane, Nahbereich)
     const blocker = this.findBlocker(ctx.defenders);
     if (blocker) {
-      blocker.takeDamage(this.data.meleeDps * dt);
+      // Sprengdrohne: explodiert beim ersten Gebäude mit Flächenschaden an Türmen
+      if (this.data.kamikaze && !this.exploded) {
+        this.exploded = true;
+        this.dead = true;
+        const kb = this.data.kamikaze;
+        const boom = this.position.clone().add(new THREE.Vector3(0, 1, 0));
+        for (const d of ctx.defenders) {
+          if (!d.dead && d.position.distanceTo(this.position) <= kb.radius) {
+            d.takeDamage(kb.damage);
+          }
+        }
+        ctx.particles.shockwave(boom, 0xff8a5c, kb.radius * 1.8);
+        ctx.particles.burstAlien(boom, 20);
+        ctx.sfx?.explosion(true);
+      } else {
+        blocker.takeDamage(this.data.meleeDps * dt);
+      }
     } else {
       this.position.x -= speed * dt;
     }
